@@ -65,6 +65,15 @@ namespace Zzapmagochi.Character
             _loop = StartCoroutine(WanderLoop());
         }
 
+        private void LateUpdate()
+        {
+            // 캐릭터가 움직이면 가구와의 앞뒤 관계도 매 프레임 달라진다.
+            if (_parts == null || viewCamera == null) return;
+
+            _parts.SetSortingBase(
+                IsoSorting.GetBaseOrder(viewCamera, transform.position, grid));
+        }
+
         private void OnDisable()
         {
             if (placement != null) placement.FurniturePlaced -= OnFurniturePlaced;

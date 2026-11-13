@@ -58,6 +58,12 @@ public class CharacterParts : MonoBehaviour
     private readonly Dictionary<string, SpriteRenderer> _renderers =
         new Dictionary<string, SpriteRenderer>();
 
+    /// <summary>파츠별 자체 정렬값(인스펙터의 order). 깊이 기준값과 더해 쓴다.</summary>
+    private readonly Dictionary<string, int> _partOrders = new Dictionary<string, int>();
+
+    /// <summary>깊이에 따라 더해지는 기준값. SetSortingBase 로 바뀐다.</summary>
+    private int _sortingBase;
+
     /// <summary>_walk / _idle 로 끝나는 파츠는 한 번에 하나만 보여야 한다.</summary>
     private const string WalkSuffix = "_walk";
     private const string IdleSuffix = "_idle";
@@ -125,6 +131,8 @@ public class CharacterParts : MonoBehaviour
             renderer.sortingLayerName = sortingLayerName;
 
         _renderers[partName] = renderer;
+        _partOrders[partName] = part.order;
+        renderer.sortingOrder = _sortingBase + part.order + sortingOrderOffset;
         ApplyVisibility(partName, renderer);
     }
 
@@ -141,6 +149,7 @@ public class CharacterParts : MonoBehaviour
         }
 
         _renderers.Clear();
+        _partOrders.Clear();
     }
 
     /// <summary>
@@ -201,6 +210,26 @@ public class CharacterParts : MonoBehaviour
     public SpriteRenderer GetPart(string partName)
     {
         return _renderers.TryGetValue(partName, out var renderer) ? renderer : null;
+    }
+
+    /// <summary>
+    /// 깊이에 따른 정렬 기준값을 적용한다.
+    /// 캐릭터와 가구가 같은 반투명 큐에 있어 깊이 버퍼로는 가려지지 않으므로,
+    /// 카메라에서 먼 정도를 sortingOrder 에 반영해야 가구 뒤로 들어간다.
+    /// </summary>
+    public void SetSortingBase(int baseOrder)
+    {
+        if (_sortingBase == baseOrder) return;
+
+        _sortingBase = baseOrder;
+
+        foreach (var pair in _renderers)
+        {
+            if (pair.Value == null) continue;
+
+            var own = _partOrders.TryGetValue(pair.Key, out var o) ? o : 0;
+            pair.Value.sortingOrder = baseOrder + own + sortingOrderOffset;
+        }
     }
 
     /// <summary>걷기 루프를 켜고 끈다. 꾸미기 미리보기에서는 꺼서 대기 포즈로 고정한다.</summary>
