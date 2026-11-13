@@ -16,5 +16,9 @@ namespace Zzapmagochi.Net
 
         /// <summary>GET /auth/check-id?studentId=...</summary>
         Task<IdAvailabilityResponse> CheckStudentId(string studentId);
+
+        // [1] Net/IApiClient.cs 내부에 추가
+        Task<GitHubStreakPayload> LinkGitHub(string githubUsername, string oauthToken = null);
+        Task<GitHubStreakPayload> GetGitHubStreak(string studentId);
     }
 }

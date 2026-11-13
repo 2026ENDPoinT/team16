@@ -75,5 +75,21 @@ namespace Zzapmagochi.Net
                 role = "user"
             };
         }
-    }
+        //  
+        public async Task<GitHubStreakPayload> LinkGitHub(string githubUsername, string oauthToken = null)
+        {
+            await Delay();
+            if (RejectEverything)
+                throw new ApiException(400, ApiErrorCode.InvalidRequest, "깃허브 연동에 실패했습니다.");
+
+            // 실제 깃허브 아이디가 입력되었으면 실제 공개 API를 찔러보고, 아니면 Mock 데이터 반환
+            return await GitHubStreakGenerator.FetchPayloadAsync(githubUsername, oauthToken, "mock-student");
+        }
+
+        public async Task<GitHubStreakPayload> GetGitHubStreak(string studentId)
+        {
+            await Delay();
+            return GitHubStreakGenerator.CreateMockPayload(studentId, "zzap-coder");
+        }
+            }
 }
