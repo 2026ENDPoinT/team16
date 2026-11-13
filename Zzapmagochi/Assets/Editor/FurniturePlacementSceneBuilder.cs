@@ -520,6 +520,16 @@ namespace Zzapmagochi.EditorTools
             layout.childForceExpandHeight = false;
             layout.childForceExpandWidth = true;
 
+            // ── 인벤토리 최상단: 가구 제거 버튼 ────────────────
+            var removeButton = CreateButton("RemoveButton", container.transform, "가구 제거",
+                new Color32(0xB5, 0x3F, 0x3F, 0xFF), 20);
+            var removeRect = removeButton.GetComponent<RectTransform>();
+            removeRect.sizeDelta = new Vector2(0f, 56f);
+            var removeLayout = removeButton.gameObject.AddComponent<LayoutElement>();
+            removeLayout.preferredHeight = 56f;
+            // 런타임에 만들어지는 항목들은 뒤에 붙으므로, 이 버튼을 맨 앞으로 고정한다.
+            removeButton.transform.SetAsFirstSibling();
+
             // 구역 제목 라벨 원본 (가구 / 벽지 / 바닥)
             var sectionLabel = CreateText("SectionTemplate", container.transform, "구역", 18,
                 MutedColor, FontStyles.Bold);
@@ -582,6 +592,8 @@ namespace Zzapmagochi.EditorTools
             so.FindProperty("itemButtonTemplate").objectReferenceValue = template;
             so.FindProperty("sectionLabelTemplate").objectReferenceValue = sectionLabel;
             so.FindProperty("hintRoot").objectReferenceValue = hint.gameObject;
+            so.FindProperty("hintText").objectReferenceValue = hintText;
+            so.FindProperty("removeButton").objectReferenceValue = removeButton;
             so.FindProperty("surfaces").objectReferenceValue = surfaces;
 
             FillAssetList<FurnitureDefinition>(so.FindProperty("ownedFurniture"), furniturePaths);

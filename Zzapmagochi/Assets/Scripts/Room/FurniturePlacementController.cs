@@ -21,7 +21,10 @@ namespace Zzapmagochi.Room
         {
             Off,
             Browsing,
-            Positioning
+            Positioning,
+
+            /// <summary>배치된 가구를 클릭해서 치우는 상태.</summary>
+            Removing
         }
 
         [Header("참조")]
@@ -40,6 +43,9 @@ namespace Zzapmagochi.Room
 
         [Tooltip("배치 가능할 때 미리보기 색")]
         [SerializeField] private Color validColor = new Color(0.3f, 0.9f, 0.4f, 0.45f);
+
+        [Tooltip("제거 모드에서 마우스가 올라간 가구를 표시할 색")]
+        [SerializeField] private Color removeHighlightColor = new Color(1f, 0.35f, 0.35f, 1f);
 
         [Tooltip("배치 불가능할 때 미리보기 색")]
         [SerializeField] private Color invalidColor = new Color(0.95f, 0.3f, 0.3f, 0.45f);
@@ -85,6 +91,12 @@ namespace Zzapmagochi.Room
                 return;
             }
 
+            if (_mode == Mode.Removing)
+            {
+                UpdateRemoving();
+                return;
+            }
+
             if (_mode != Mode.Positioning) return;
 
             if (keyboard != null && keyboard[rotateKey].wasPressedThisFrame)
@@ -116,6 +128,7 @@ namespace Zzapmagochi.Room
 
         public void ExitPlacementMode()
         {
+            ClearRemoveHover();
             DestroyPreview();
             _selected = null;
             _rotationStep = 0;
@@ -126,6 +139,126 @@ namespace Zzapmagochi.Room
         {
             if (_mode == Mode.Off) EnterPlacementMode();
             else ExitPlacementMode();
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // 가구 제거
+        // ─────────────────────────────────────────────────────────
+
+        /// <summary>마우스가 올라가 있는 가구. 강조 표시를 되돌리려고 들고 있는다.</summary>
+        private PlacedFurniture _removeHover;
+        private readonly List<Renderer> _hoverRenderers = new List<Renderer>();
+
+        /// <summary>
+        /// 제거 모드로 들어간다. 인벤토리는 ModeChanged 를 받은 UI 가 닫는다.
+        /// </summary>
+        public void EnterRemoveMode()
+        {
+            if (_mode == Mode.Off) return;
+
+            DestroyPreview();
+            _selected = null;
+            _rotationStep = 0;
+
+            SetMode(Mode.Removing);
+        }
+
+        /// <summary>제거를 그만두고 인벤토리로 돌아간다.</summary>
+        public void CancelRemoving()
+        {
+            ClearRemoveHover();
+            SetMode(Mode.Browsing);
+        }
+
+        private void UpdateRemoving()
+        {
+            var mouse = Mouse.current;
+            if (mouse == null) return;
+
+            if (IsPointerOverUI())
+            {
+                ClearRemoveHover();
+                return;
+            }
+
+            var target = FindFurnitureUnderPointer();
+            SetRemoveHover(target);
+
+            if (mouse.leftButton.wasPressedThisFrame && target != null)
+            {
+                ClearRemoveHover();
+                RemoveFurniture(target);
+                // 여러 개를 연달아 치울 수 있도록 제거 모드를 유지한다.
+            }
+            else if (mouse.rightButton.wasPressedThisFrame)
+            {
+                CancelRemoving();
+            }
+        }
+
+        /// <summary>
+        /// 마우스 아래의 설치된 가구를 찾는다.
+        /// 가구 프리팹의 콜라이더는 isTrigger 라서 트리거도 맞도록 질의한다.
+        /// </summary>
+        private PlacedFurniture FindFurnitureUnderPointer()
+        {
+            var mouse = Mouse.current;
+            if (mouse == null || targetCamera == null) return null;
+
+            var ray = targetCamera.ScreenPointToRay(mouse.position.ReadValue());
+
+            var hits = Physics.RaycastAll(ray, 1000f, ~0, QueryTriggerInteraction.Collide);
+            if (hits.Length == 0) return null;
+
+            // 카메라에 가장 가까운 가구를 고른다. 겹쳐 보일 때 앞의 것이 집히도록.
+            PlacedFurniture best = null;
+            var bestDistance = float.MaxValue;
+
+            foreach (var hit in hits)
+            {
+                var furniture = hit.collider.GetComponentInParent<PlacedFurniture>();
+                if (furniture == null) continue;
+                if (hit.distance >= bestDistance) continue;
+
+                best = furniture;
+                bestDistance = hit.distance;
+            }
+
+            return best;
+        }
+
+        private void SetRemoveHover(PlacedFurniture furniture)
+        {
+            if (_removeHover == furniture) return;
+
+            ClearRemoveHover();
+            if (furniture == null) return;
+
+            _removeHover = furniture;
+            furniture.GetComponentsInChildren(true, _hoverRenderers);
+
+            // 머티리얼은 에셋이라 직접 건드리면 안 된다.
+            // MaterialPropertyBlock 은 렌더러 단위라 원본 머티리얼을 바꾸지 않는다.
+            foreach (var renderer in _hoverRenderers)
+            {
+                if (renderer == null) continue;
+                renderer.GetPropertyBlock(_block);
+                _block.SetColor("_BaseColor", removeHighlightColor);
+                _block.SetColor("_Color", removeHighlightColor);
+                renderer.SetPropertyBlock(_block);
+            }
+        }
+
+        private void ClearRemoveHover()
+        {
+            foreach (var renderer in _hoverRenderers)
+            {
+                if (renderer == null) continue;
+                renderer.SetPropertyBlock(null);
+            }
+
+            _hoverRenderers.Clear();
+            _removeHover = null;
         }
 
         /// <summary>인벤토리에서 가구를 고르면 호출된다.</summary>
