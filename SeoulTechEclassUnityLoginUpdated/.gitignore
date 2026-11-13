@@ -1,0 +1,7 @@
+bin/
+obj/
+result.txt
+sample_result.txt
+session_cookies.txt
+*.user
+*.suo
