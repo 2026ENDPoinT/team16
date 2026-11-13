@@ -236,7 +236,46 @@ GET /me
 ```
 
 - `persona`, `accessory`는 `null` 가능
+- 응답에는 `onboarding` 이 함께 들어간다. 로그인 후 어느 씬으로 갈지는 이 값으로 정한다
+  (`nextScene`: `scene_survey` 또는 `scene_room`). 클라이언트가 조건을 조합해 판단하지 않는다
 - `inventory`는 보유 아이템 ID 배열. 가구·의상·벽지·바닥지를 구분 없이 담는다. 분류는 클라이언트가 ScriptableObject 정의로 판단한다
+
+### 3.1b 설문(페르소나) 제출
+
+```
+POST /me/survey
+```
+
+scene_survey 완료 시 한 번 호출한다. 이 응답을 받은 뒤 scene_room 으로 넘어간다.
+
+```json
+{
+  "nickname": "짭이",
+  "catchphrase": "오늘도 과제 화이팅",
+  "persona": "Diligent",
+  "answers": [ { "questionIndex": 0, "optionIndex": 2 } ]
+}
+```
+
+**응답 200**
+
+```json
+{
+  "character": { "nickname": "짭이", "persona": "Diligent", "catchphrase": "...",
+                 "presetId": "chara_0", "parts": { "...": null } },
+  "onboarding": { "hasCharacter": true, "hasPersona": true, "nextScene": "scene_room" }
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `persona` | `Diligent` / `Cheerleader` / `Tsundere` / `NightCoder`. Unity 의 `MatePersonaType` 과 문자열이 같아야 한다 |
+| `answers` | 판정 근거. 서버는 저장만 하고 `persona` 를 덮어쓰지 않는다 |
+
+**에러**: 409 `SURVEY_ALREADY_DONE`, 400 `INVALID_NICKNAME`
+
+> 설문을 마치면 서버가 기본 캐릭터와 기본 자취방을 함께 만든다.
+> 상세 계약은 `Server/데이터구조.md` 를 본다.
 
 ### 3.2 캐릭터 생성
 
@@ -425,12 +464,12 @@ POST /todos/sync
   "studentId": "20241234",
   "ownerNickname": "짭이",
   "visibility": "public",
-  "grid": { "width": 5, "depth": 5, "height": 3 },
+  "grid": { "width": 5, "height": 4, "depth": 5 },
   "wallpaperId": "wall_01",
   "floorId": "floor_03",
   "placements": [
-    { "furnitureId": "furn_bed_01", "gridX": 0, "gridY": 3, "rotation": 0 },
-    { "furnitureId": "furn_desk_01", "gridX": 2, "gridY": 0, "rotation": 90 }
+    { "furnitureId": "furn_bed_01", "gridX": 0, "gridY": 0, "gridZ": 3, "rotation": 0 },
+    { "furnitureId": "furn_frame_01", "gridX": 0, "gridY": 1, "gridZ": 1, "rotation": 0 }
   ],
   "character": {
     "nickname": "짭이",
@@ -444,7 +483,7 @@ POST /todos/sync
 | 필드 | 설명 |
 |---|---|
 | `grid` | 방 크기. **현재 5×5×3이지만 서버가 내려준 값을 쓴다.** 하드코딩 금지 |
-| `gridX`, `gridY` | 좌상단 기준 0-indexed 셀 좌표 |
+| `gridX`, `gridY`, `gridZ` | 0-indexed 셀 좌표. X=가로, **Y=높이(층)**, Z=세로. 바닥 가구는 `gridY: 0` |
 | `rotation` | `0` / `90` / `180` / `270` 만 허용 |
 | `character` | 방문 모드에서 방 주인 캐릭터를 렌더링하는 데 쓴다 |
 
@@ -471,8 +510,8 @@ PUT /room/me
   "wallpaperId": "wall_01",
   "floorId": "floor_03",
   "placements": [
-    { "furnitureId": "furn_bed_01", "gridX": 0, "gridY": 3, "rotation": 0 },
-    { "furnitureId": "furn_desk_01", "gridX": 2, "gridY": 0, "rotation": 90 }
+    { "furnitureId": "furn_bed_01", "gridX": 0, "gridY": 0, "gridZ": 3, "rotation": 0 },
+    { "furnitureId": "furn_frame_01", "gridX": 0, "gridY": 1, "gridZ": 1, "rotation": 0 }
   ]
 }
 ```
@@ -496,7 +535,7 @@ PUT /room/me
   "error": {
     "code": "CELL_OCCUPIED",
     "message": "가구가 겹칩니다.",
-    "detail": { "gridX": 2, "gridY": 0, "conflictWith": "furn_bed_01" }
+    "detail": { "gridX": 2, "gridY": 0, "gridZ": 0, "conflictWith": "furn_bed_01" }
   }
 }
 ```
