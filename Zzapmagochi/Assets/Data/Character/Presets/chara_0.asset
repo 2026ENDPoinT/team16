@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: chara_0
   m_EditorClassIdentifier: Assembly-CSharp::Zzapmagochi.Character.CharacterPresetDefinition
   id: chara_0
-  displayName: "\uCE90\uB9AD\uD130 A"
+  displayName: "\uBBF8\uCFE0"
   portrait: {fileID: 0}
   body: {fileID: 21300000, guid: 2f090cfb0156f12498d36e5724fc88cd, type: 3}
   head: {fileID: 21300000, guid: a967625a57fee3f4f83ef4b48d0ee7d5, type: 3}
