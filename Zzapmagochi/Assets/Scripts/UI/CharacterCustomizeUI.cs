@@ -33,6 +33,10 @@ namespace Zzapmagochi.UI
 
         [SerializeField] private Button closeButton;
 
+        [Header("보유 캐릭터")]
+        [Tooltip("선택할 수 있는 캐릭터 프리셋. 목록의 맨 위에 표시되고, 항상 하나가 선택된다.")]
+        [SerializeField] private List<CharacterPresetDefinition> ownedCharacters = new List<CharacterPresetDefinition>();
+
         [Header("보유 의상")]
         [Tooltip("임시. 실제로는 서버 인벤토리에서 받아온다 (API문서.md 3.1).")]
         [SerializeField] private List<CharacterItemDefinition> ownedItems = new List<CharacterItemDefinition>();
@@ -48,6 +52,10 @@ namespace Zzapmagochi.UI
         private readonly Dictionary<CharacterItemDefinition, Image> _itemButtons =
             new Dictionary<CharacterItemDefinition, Image>();
 
+        /// <summary>생성한 버튼 ↔ 캐릭터 프리셋.</summary>
+        private readonly Dictionary<CharacterPresetDefinition, Image> _characterButtons =
+            new Dictionary<CharacterPresetDefinition, Image>();
+
         private bool _open;
 
         private void Awake()
@@ -61,12 +69,16 @@ namespace Zzapmagochi.UI
 
         private void OnEnable()
         {
-            if (customizer != null) customizer.EquipChanged += OnEquipChanged;
+            if (customizer == null) return;
+            customizer.EquipChanged += OnEquipChanged;
+            customizer.PresetChanged += OnPresetChanged;
         }
 
         private void OnDisable()
         {
-            if (customizer != null) customizer.EquipChanged -= OnEquipChanged;
+            if (customizer == null) return;
+            customizer.EquipChanged -= OnEquipChanged;
+            customizer.PresetChanged -= OnPresetChanged;
         }
 
         private bool _captured;
@@ -90,12 +102,13 @@ namespace Zzapmagochi.UI
 
             if (!open) return;
 
-            // 캐릭터에 이미 입혀져 있는 옷을 장착 상태로 잡아 둔다.
+            // 캐릭터에 이미 입혀져 있는 옷과 캐릭터 종류를 선택 상태로 잡아 둔다.
             // Start 에서 하면 CharacterParts.Start 보다 먼저 돌 수 있어 파츠가 아직 없다.
             // 처음 열 때 한 번만 읽는다.
             if (!_captured && customizer != null)
             {
                 customizer.CaptureCurrent(ownedItems);
+                SelectInitialCharacter();
                 _captured = true;
             }
 
@@ -111,6 +124,10 @@ namespace Zzapmagochi.UI
             if (itemContainer == null || itemButtonTemplate == null) return;
 
             _itemButtons.Clear();
+            _characterButtons.Clear();
+
+            // 캐릭터 선택은 의상(외투)보다 위에 둔다.
+            BuildCharacterSection();
 
             foreach (var slot in CharacterSlots.All)
             {
@@ -133,6 +150,86 @@ namespace Zzapmagochi.UI
                 foreach (var item in itemsInSlot)
                     CreateItemButton(item);
             }
+        }
+
+        /// <summary>목록 맨 위의 캐릭터 선택 구역을 만든다.</summary>
+        private void BuildCharacterSection()
+        {
+            var available = new List<CharacterPresetDefinition>();
+            foreach (var preset in ownedCharacters)
+            {
+                if (preset != null) available.Add(preset);
+            }
+
+            if (available.Count == 0) return;
+
+            if (slotLabelTemplate != null)
+            {
+                var label = Instantiate(slotLabelTemplate, itemContainer);
+                label.gameObject.SetActive(true);
+                label.name = "Slot_Character";
+                label.text = "캐릭터";
+            }
+
+            foreach (var preset in available)
+            {
+                var button = Instantiate(itemButtonTemplate, itemContainer);
+                button.gameObject.SetActive(true);
+                button.name = $"Character_{preset.id}";
+
+                var label = button.GetComponentInChildren<TMP_Text>(true);
+                if (label != null) label.text = preset.DisplayNameOrId;
+
+                var icon = button.transform.Find("Icon")?.GetComponent<Image>();
+                if (icon != null)
+                {
+                    icon.sprite = preset.Portrait;
+                    icon.enabled = preset.Portrait != null;
+                    icon.preserveAspect = true;
+                }
+
+                var captured = preset;
+                button.onClick.AddListener(() => OnCharacterClicked(captured));
+
+                var background = button.GetComponent<Image>();
+                if (background != null) _characterButtons[preset] = background;
+            }
+        }
+
+        /// <summary>
+        /// 처음 열 때 선택 상태를 정한다.
+        /// 씬에 서 있는 캐릭터와 같은 프리셋이 있으면 그것을 고르고 덮어쓰지 않는다.
+        /// 일치하는 것이 없으면 첫 번째 프리셋을 적용한다 — 항상 하나는 선택되어야 하므로.
+        /// </summary>
+        private void SelectInitialCharacter()
+        {
+            if (customizer == null || ownedCharacters.Count == 0) return;
+            if (customizer.CurrentPreset != null) return;
+
+            var matching = customizer.FindMatchingPreset(ownedCharacters);
+            if (matching != null)
+            {
+                customizer.SetPresetWithoutApplying(matching);
+                return;
+            }
+
+            foreach (var preset in ownedCharacters)
+            {
+                if (preset == null) continue;
+                customizer.ApplyPreset(preset);
+                return;
+            }
+        }
+
+        private void OnCharacterClicked(CharacterPresetDefinition preset)
+        {
+            if (customizer == null) return;
+
+            // 캐릭터는 반드시 하나가 선택되어 있어야 하므로 선택 해제는 없다.
+            // 이미 선택된 캐릭터를 다시 눌러도 프리셋을 다시 불러오지 않는다(꾸민 옷이 날아가므로).
+            if (customizer.CurrentPreset == preset) return;
+
+            customizer.ApplyPreset(preset);
         }
 
         private void CreateItemButton(CharacterItemDefinition item)
@@ -171,6 +268,11 @@ namespace Zzapmagochi.UI
             RefreshSelection();
         }
 
+        private void OnPresetChanged(CharacterPresetDefinition preset)
+        {
+            RefreshSelection();
+        }
+
         private void RefreshSelection()
         {
             if (customizer == null) return;
@@ -179,6 +281,12 @@ namespace Zzapmagochi.UI
             {
                 if (pair.Value == null) continue;
                 pair.Value.color = customizer.IsEquipped(pair.Key) ? selectedColor : normalColor;
+            }
+
+            foreach (var pair in _characterButtons)
+            {
+                if (pair.Value == null) continue;
+                pair.Value.color = customizer.CurrentPreset == pair.Key ? selectedColor : normalColor;
             }
         }
     }
