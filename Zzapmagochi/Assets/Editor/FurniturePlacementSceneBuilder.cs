@@ -11,7 +11,7 @@ using Zzapmagochi.UI;
 namespace Zzapmagochi.EditorTools
 {
     /// <summary>
-    /// dev_Furniture_Placement 씬에 가구 배치 모드를 구성한다.
+    /// scene_room 에 가구 배치 모드와 벽지·바닥 교체 기능을 구성한다.
     ///
     ///   Unity.exe -batchmode -quit -projectPath &lt;경로&gt; \
     ///     -executeMethod Zzapmagochi.EditorTools.FurniturePlacementSceneBuilder.BuildAll
@@ -20,14 +20,17 @@ namespace Zzapmagochi.EditorTools
     /// </summary>
     public static class FurniturePlacementSceneBuilder
     {
-        private const string ScenePath = "Assets/Scenes/dev_Furniture_Placement.unity";
+        private const string ScenePath = "Assets/Scenes/scene_room.unity";
         private const string PrefabDir = "Assets/Prefabs/Furniture";
         private const string DataDir = "Assets/Data/Furniture";
+        private const string SurfaceDir = "Assets/Data/Surface";
+        private const string SpriteDir = "Assets/Sprites";
         private const string MaterialDir = "Assets/Art/Materials";
 
         private const string GridObjectName = "RoomGrid";
         private const string ControllerObjectName = "FurniturePlacement";
         private const string UiRootName = "PlacementUI";
+        private const string SurfaceObjectName = "RoomSurfaces";
 
         // 색상
         private static readonly Color PanelColor = new Color32(0x23, 0x28, 0x33, 0xF2);
@@ -46,15 +49,25 @@ namespace Zzapmagochi.EditorTools
             EnsureFolders();
 
             var previewMaterial = CreatePreviewMaterial();
-            var fridge = CreateFridge();
-            var sofa = CreateSofa();
-            var frame = CreatePictureFrame();
+
+            // 에셋 경로만 들고 다닌다. 씬을 열기 전에 만든 ScriptableObject 인스턴스를
+            // 씬 필드에 그대로 넣으면 null 로 저장되는 경우가 있다.
+            var furniturePaths = new List<string>
+            {
+                CreateFridge(),
+                CreateSofa(),
+                CreatePictureFrame()
+            };
+
+            var wallpaperPaths = CreateSurfaces(RoomSurfaceKind.Wallpaper, "hous_wall_", "벽지");
+            var floorPaths = CreateSurfaces(RoomSurfaceKind.Floor, "hous_ground_", "바닥");
 
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 
             var grid = EnsureGrid();
             var controller = EnsureController(grid, previewMaterial);
-            BuildUi(controller, new List<FurnitureDefinition> { fridge, sofa, frame });
+            var surfaces = EnsureSurfaceController(wallpaperPaths, floorPaths);
+            BuildUi(controller, surfaces, furniturePaths, wallpaperPaths, floorPaths);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -62,12 +75,13 @@ namespace Zzapmagochi.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log("[FurniturePlacement] 구성 완료");
+            Debug.Log($"[FurniturePlacement] 구성 완료 "
+                      + $"(가구 {furniturePaths.Count}종, 벽지 {wallpaperPaths.Count}종, 바닥 {floorPaths.Count}종)");
         }
 
         private static void EnsureFolders()
         {
-            foreach (var dir in new[] { "Assets/Prefabs", PrefabDir, "Assets/Data", DataDir, "Assets/Art", MaterialDir })
+            foreach (var dir in new[] { "Assets/Prefabs", PrefabDir, "Assets/Data", DataDir, SurfaceDir, "Assets/Art", MaterialDir })
             {
                 if (Directory.Exists(dir)) continue;
                 var parent = Path.GetDirectoryName(dir)?.Replace('\\', '/');
@@ -117,7 +131,7 @@ namespace Zzapmagochi.EditorTools
         }
 
         /// <summary>냉장고: 큐브, 바닥 1×1, 높이 2유닛.</summary>
-        private static FurnitureDefinition CreateFridge()
+        private static string CreateFridge()
         {
             var material = CreateSolidMaterial("furn_fridge", new Color32(0xD7, 0xDD, 0xE5, 0xFF));
             var prefab = BuildPrimitivePrefab(
@@ -138,7 +152,7 @@ namespace Zzapmagochi.EditorTools
         }
 
         /// <summary>쇼파: 누운 원통, 바닥 2×1, 높이 1유닛.</summary>
-        private static FurnitureDefinition CreateSofa()
+        private static string CreateSofa()
         {
             var material = CreateSolidMaterial("furn_sofa", new Color32(0xC2, 0x6B, 0x5A, 0xFF));
 
@@ -167,7 +181,7 @@ namespace Zzapmagochi.EditorTools
         /// 기준 자세(회전 0단계)는 X 최소쪽 벽에 붙어 +X 를 바라보는 모습이다.
         /// 다른 벽에서는 컨트롤러가 회전 단계를 바꿔 주므로 프리팹은 이 자세만 만들면 된다.
         /// </summary>
-        private static FurnitureDefinition CreatePictureFrame()
+        private static string CreatePictureFrame()
         {
             const string path = PrefabDir + "/furn_frame.prefab";
 
@@ -199,7 +213,7 @@ namespace Zzapmagochi.EditorTools
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
             Object.DestroyImmediate(root);
 
-            var definition = CreateDefinition(
+            var definitionPath = CreateDefinition(
                 "furn_frame", "액자",
                 new Vector3Int(1, 2, 2),
                 PlacementSurface.Wall,
@@ -207,10 +221,15 @@ namespace Zzapmagochi.EditorTools
                 prefab);
 
             // 액자는 R 키로 돌리지 않는다. 닿는 벽이 자세를 정한다.
-            definition.allowRotation = false;
-            EditorUtility.SetDirty(definition);
+            var definition = AssetDatabase.LoadAssetAtPath<FurnitureDefinition>(definitionPath);
+            if (definition != null)
+            {
+                definition.allowRotation = false;
+                EditorUtility.SetDirty(definition);
+                AssetDatabase.SaveAssets();
+            }
 
-            return definition;
+            return definitionPath;
         }
 
         /// <summary>
@@ -247,7 +266,7 @@ namespace Zzapmagochi.EditorTools
             return prefab;
         }
 
-        private static FurnitureDefinition CreateDefinition(string id, string displayName,
+        private static string CreateDefinition(string id, string displayName,
             Vector3Int size, PlacementSurface surface, bool blocksPath, GameObject prefab)
         {
             var path = $"{DataDir}/{id}.asset";
@@ -267,7 +286,94 @@ namespace Zzapmagochi.EditorTools
             definition.prefab = prefab;
 
             EditorUtility.SetDirty(definition);
-            return definition;
+            AssetDatabase.SaveAssets();
+            return path;
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // 벽지 / 바닥지
+        // ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Assets/Sprites 의 hous_wall_숫자 / hous_ground_숫자 스프라이트를 훑어
+        /// 벽지·바닥지 정의 에셋을 만든다. 번호가 끊길 때까지 올라간다.
+        /// </summary>
+        private static List<string> CreateSurfaces(RoomSurfaceKind kind, string prefix, string label)
+        {
+            var paths = new List<string>();
+
+            for (var index = 0; index < 64; index++)
+            {
+                var sprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{SpriteDir}/{prefix}{index}.png");
+                if (sprite == null)
+                {
+                    // 0번이 없으면 아예 없는 것으로 보고, 중간이 비면 거기서 멈춘다.
+                    if (index == 0) continue;
+                    break;
+                }
+
+                var id = $"{(kind == RoomSurfaceKind.Wallpaper ? "wall" : "floor")}_{index}";
+                var path = $"{SurfaceDir}/{id}.asset";
+
+                var definition = AssetDatabase.LoadAssetAtPath<RoomSurfaceDefinition>(path);
+                if (definition == null)
+                {
+                    definition = ScriptableObject.CreateInstance<RoomSurfaceDefinition>();
+                    AssetDatabase.CreateAsset(definition, path);
+                }
+
+                definition.id = id;
+                definition.displayName = $"{label} {index + 1}";
+                definition.kind = kind;
+                definition.sprite = sprite;
+
+                EditorUtility.SetDirty(definition);
+                paths.Add(path);
+            }
+
+            AssetDatabase.SaveAssets();
+            return paths;
+        }
+
+        /// <summary>room 아래의 wall_L / wall_R / floor 를 찾아 교체 컨트롤러에 연결한다.</summary>
+        private static RoomSurfaceController EnsureSurfaceController(
+            List<string> wallpaperPaths, List<string> floorPaths)
+        {
+            var go = GameObject.Find(SurfaceObjectName) ?? new GameObject(SurfaceObjectName);
+            var controller = go.GetComponent<RoomSurfaceController>()
+                             ?? go.AddComponent<RoomSurfaceController>();
+
+            var so = new SerializedObject(controller);
+            so.FindProperty("wallLeft").objectReferenceValue = FindRoomRenderer("wall_L");
+            so.FindProperty("wallRight").objectReferenceValue = FindRoomRenderer("wall_R");
+            so.FindProperty("floor").objectReferenceValue = FindRoomRenderer("floor");
+
+            // 기본값은 비워 둔다. 씬에 이미 깔려 있는 스프라이트를 그대로 쓰고,
+            // UI 가 열릴 때 그것과 일치하는 정의를 선택 상태로 잡는다.
+            so.FindProperty("defaultWallpaper").objectReferenceValue = null;
+            so.FindProperty("defaultFloor").objectReferenceValue = null;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            foreach (var name in new[] { "wall_L", "wall_R", "floor" })
+            {
+                if (FindRoomRenderer(name) == null)
+                    Debug.LogError($"[FurniturePlacement] room 아래에서 {name} 을 찾지 못했습니다.");
+            }
+
+            return controller;
+        }
+
+        private static SpriteRenderer FindRoomRenderer(string childName)
+        {
+            var room = GameObject.Find("room");
+            if (room == null) return null;
+
+            foreach (var renderer in room.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                if (renderer.gameObject.name == childName) return renderer;
+            }
+
+            return null;
         }
 
         // ─────────────────────────────────────────────────────────
@@ -320,7 +426,8 @@ namespace Zzapmagochi.EditorTools
         // ─────────────────────────────────────────────────────────
 
         private static void BuildUi(FurniturePlacementController controller,
-            List<FurnitureDefinition> owned)
+            RoomSurfaceController surfaces,
+            List<string> furniturePaths, List<string> wallpaperPaths, List<string> floorPaths)
         {
             var canvas = FindCanvas();
             if (canvas == null)
@@ -391,12 +498,40 @@ namespace Zzapmagochi.EditorTools
             layout.childForceExpandHeight = false;
             layout.childForceExpandWidth = true;
 
+            // 구역 제목 라벨 원본 (가구 / 벽지 / 바닥)
+            var sectionLabel = CreateText("SectionTemplate", container.transform, "구역", 18,
+                MutedColor, FontStyles.Bold);
+            sectionLabel.rectTransform.sizeDelta = new Vector2(0f, 26f);
+            var sectionLayout = sectionLabel.gameObject.AddComponent<LayoutElement>();
+            sectionLayout.preferredHeight = 26f;
+            sectionLabel.gameObject.SetActive(false);
+
             // 아이템 버튼 원본
             var template = CreateButton("ItemTemplate", container.transform, "가구", ItemColor, 20);
             var templateRect = template.GetComponent<RectTransform>();
             templateRect.sizeDelta = new Vector2(0f, 72f);
             var templateLayout = template.gameObject.AddComponent<LayoutElement>();
             templateLayout.preferredHeight = 72f;
+
+            // 벽지·바닥 썸네일 자리. 가구는 스프라이트가 없어 꺼진 채로 둔다.
+            var iconGo = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconGo.transform.SetParent(template.transform, false);
+            var iconRect = iconGo.GetComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0f, 0.5f);
+            iconRect.anchorMax = new Vector2(0f, 0.5f);
+            iconRect.pivot = new Vector2(0f, 0.5f);
+            iconRect.anchoredPosition = new Vector2(12f, 0f);
+            iconRect.sizeDelta = new Vector2(56f, 56f);
+
+            var templateLabel = template.GetComponentInChildren<TMP_Text>(true);
+            if (templateLabel != null)
+            {
+                var tl = templateLabel.rectTransform;
+                tl.offsetMin = new Vector2(80f, 0f);
+                tl.offsetMax = new Vector2(-12f, 0f);
+                templateLabel.alignment = TextAlignmentOptions.Left;
+            }
+
             template.gameObject.SetActive(false);
 
             // ── 배치 중 안내 ───────────────────────────────────
@@ -423,17 +558,38 @@ namespace Zzapmagochi.EditorTools
             so.FindProperty("inventoryRoot").objectReferenceValue = inventory.gameObject;
             so.FindProperty("itemContainer").objectReferenceValue = container.transform;
             so.FindProperty("itemButtonTemplate").objectReferenceValue = template;
+            so.FindProperty("sectionLabelTemplate").objectReferenceValue = sectionLabel;
             so.FindProperty("hintRoot").objectReferenceValue = hint.gameObject;
+            so.FindProperty("surfaces").objectReferenceValue = surfaces;
 
-            var list = so.FindProperty("ownedFurniture");
-            list.arraySize = owned.Count;
-            for (var i = 0; i < owned.Count; i++)
-                list.GetArrayElementAtIndex(i).objectReferenceValue = owned[i];
+            FillAssetList<FurnitureDefinition>(so.FindProperty("ownedFurniture"), furniturePaths);
+            FillAssetList<RoomSurfaceDefinition>(so.FindProperty("ownedWallpapers"), wallpaperPaths);
+            FillAssetList<RoomSurfaceDefinition>(so.FindProperty("ownedFloors"), floorPaths);
 
             so.ApplyModifiedPropertiesWithoutUndo();
 
             inventory.gameObject.SetActive(false);
             hint.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// 경로 목록을 씬 필드의 에셋 참조로 채운다.
+        /// 씬을 연 뒤에 불러와야 참조가 null 로 저장되지 않는다.
+        /// </summary>
+        private static void FillAssetList<T>(SerializedProperty property, List<string> paths)
+            where T : Object
+        {
+            if (property == null) return;
+
+            property.arraySize = paths.Count;
+            for (var i = 0; i < paths.Count; i++)
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<T>(paths[i]);
+                if (asset == null)
+                    Debug.LogError($"[FurniturePlacement] 에셋을 불러오지 못했습니다: {paths[i]}");
+
+                property.GetArrayElementAtIndex(i).objectReferenceValue = asset;
+            }
         }
 
         private static Canvas FindCanvas()
