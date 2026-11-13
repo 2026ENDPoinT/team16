@@ -66,7 +66,7 @@ namespace Zzapmagochi.EditorTools
 
             var grid = EnsureGrid();
             var controller = EnsureController(grid, previewMaterial);
-            var surfaces = EnsureSurfaceController(wallpaperPaths, floorPaths);
+            var surfaces = EnsureSurfaceController();
             BuildUi(controller, surfaces, furniturePaths, wallpaperPaths, floorPaths);
 
             EditorSceneManager.MarkSceneDirty(scene);
@@ -335,18 +335,44 @@ namespace Zzapmagochi.EditorTools
             return paths;
         }
 
-        /// <summary>room 아래의 wall_L / wall_R / floor 를 찾아 교체 컨트롤러에 연결한다.</summary>
-        private static RoomSurfaceController EnsureSurfaceController(
-            List<string> wallpaperPaths, List<string> floorPaths)
+        /// <summary>
+        /// room 아래의 SpriteRenderer 를 벽/바닥으로 분류해 교체 컨트롤러에 연결한다.
+        /// 이름을 하나씩 찾지 않는 이유: 방 구조가 벽 2장일 때도 4조각일 때도 동작해야 하고,
+        /// 분류 규칙을 RoomAtmosphereController 와 한 곳에서 맞추기 위해서다.
+        /// </summary>
+        private static RoomSurfaceController EnsureSurfaceController()
         {
             var go = GameObject.Find(SurfaceObjectName) ?? new GameObject(SurfaceObjectName);
             var controller = go.GetComponent<RoomSurfaceController>()
                              ?? go.AddComponent<RoomSurfaceController>();
 
+            var room = GameObject.Find("room");
+            if (room == null)
+            {
+                Debug.LogError("[FurniturePlacement] 씬에서 room 오브젝트를 찾지 못했습니다.");
+                return controller;
+            }
+
+            var walls = new List<SpriteRenderer>();
+            var floors = new List<SpriteRenderer>();
+
+            foreach (var renderer in room.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                // 3D 두께 껍데기는 MeshRenderer 라 여기 걸리지 않지만, 혹시 모를 경우를 위해 건너뛴다.
+                if (renderer.transform.parent != null &&
+                    renderer.transform.parent.name.StartsWith("__")) continue;
+
+                if (RoomSurfaceController.IsFloorName(renderer.gameObject.name))
+                    floors.Add(renderer);
+                else
+                    walls.Add(renderer);
+            }
+
             var so = new SerializedObject(controller);
-            so.FindProperty("wallLeft").objectReferenceValue = FindRoomRenderer("wall_L");
-            so.FindProperty("wallRight").objectReferenceValue = FindRoomRenderer("wall_R");
-            so.FindProperty("floor").objectReferenceValue = FindRoomRenderer("floor");
+            FillComponentList(so.FindProperty("wallRenderers"), walls);
+            FillComponentList(so.FindProperty("floorRenderers"), floors);
+            so.FindProperty("atmosphere").objectReferenceValue =
+                Object.FindFirstObjectByType<RoomAtmosphereController>();
 
             // 기본값은 비워 둔다. 씬에 이미 깔려 있는 스프라이트를 그대로 쓰고,
             // UI 가 열릴 때 그것과 일치하는 정의를 선택 상태로 잡는다.
@@ -354,26 +380,22 @@ namespace Zzapmagochi.EditorTools
             so.FindProperty("defaultFloor").objectReferenceValue = null;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            foreach (var name in new[] { "wall_L", "wall_R", "floor" })
-            {
-                if (FindRoomRenderer(name) == null)
-                    Debug.LogError($"[FurniturePlacement] room 아래에서 {name} 을 찾지 못했습니다.");
-            }
+            Debug.Log($"[FurniturePlacement] 벽 {walls.Count}장, 바닥 {floors.Count}장 연결");
+
+            if (walls.Count == 0 || floors.Count == 0)
+                Debug.LogError("[FurniturePlacement] 벽 또는 바닥 렌더러를 찾지 못했습니다. room 하위 구조를 확인하세요.");
 
             return controller;
         }
 
-        private static SpriteRenderer FindRoomRenderer(string childName)
+        private static void FillComponentList<T>(SerializedProperty property, List<T> items)
+            where T : Object
         {
-            var room = GameObject.Find("room");
-            if (room == null) return null;
+            if (property == null) return;
 
-            foreach (var renderer in room.GetComponentsInChildren<SpriteRenderer>(true))
-            {
-                if (renderer.gameObject.name == childName) return renderer;
-            }
-
-            return null;
+            property.arraySize = items.Count;
+            for (var i = 0; i < items.Count; i++)
+                property.GetArrayElementAtIndex(i).objectReferenceValue = items[i];
         }
 
         // ─────────────────────────────────────────────────────────

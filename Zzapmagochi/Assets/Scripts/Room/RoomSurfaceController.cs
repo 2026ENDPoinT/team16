@@ -6,22 +6,26 @@ namespace Zzapmagochi.Room
 {
     /// <summary>
     /// 자취방의 벽지와 바닥지를 교체한다.
-    /// 벽지는 room/wall_L 과 room/wall_R 두 장을 같이 바꾸고,
-    /// 바닥지는 room/floor 한 장을 바꾼다.
+    ///
+    /// 대상 렌더러는 이름이 아니라 "구역"으로 묶어 둔다.
+    /// 방 구조가 벽 2장(wall_L / wall_R)일 때도, 4조각(hous_wall_0_0 …)일 때도 같이 동작해야 하기 때문이다.
+    /// 분류 규칙은 RoomAtmosphereController 와 똑같이 맞춘다 —
+    /// 이름에 "ground" 또는 "floor" 가 들어가면 바닥, 나머지는 벽.
     ///
     /// 벽지와 바닥은 각각 반드시 하나가 선택되어 있어야 하므로 해제는 없다.
     /// </summary>
     public class RoomSurfaceController : MonoBehaviour
     {
         [Header("대상 렌더러")]
-        [Tooltip("room/wall_L")]
-        [SerializeField] private SpriteRenderer wallLeft;
+        [Tooltip("벽지를 입힐 SpriteRenderer 들. 벽이 여러 조각이면 전부 넣는다.")]
+        [SerializeField] private List<SpriteRenderer> wallRenderers = new List<SpriteRenderer>();
 
-        [Tooltip("room/wall_R")]
-        [SerializeField] private SpriteRenderer wallRight;
+        [Tooltip("바닥지를 입힐 SpriteRenderer 들.")]
+        [SerializeField] private List<SpriteRenderer> floorRenderers = new List<SpriteRenderer>();
 
-        [Tooltip("room/floor")]
-        [SerializeField] private SpriteRenderer floor;
+        [Header("연동")]
+        [Tooltip("벽지·바닥을 바꾼 뒤 3D 두께 톤을 다시 계산하게 한다. 없으면 생략한다.")]
+        [SerializeField] private RoomAtmosphereController atmosphere;
 
         [Header("기본값")]
         [Tooltip("비워 두면 씬에 이미 들어 있는 스프라이트를 그대로 쓴다.")]
@@ -37,28 +41,37 @@ namespace Zzapmagochi.Room
         /// <summary>벽지나 바닥지가 바뀔 때 알린다. UI 가 선택 표시를 갱신하는 데 쓴다.</summary>
         public event Action<RoomSurfaceKind, RoomSurfaceDefinition> SurfaceChanged;
 
+        /// <summary>이름이 바닥을 가리키는지. RoomAtmosphereController 와 같은 규칙이다.</summary>
+        public static bool IsFloorName(string name)
+        {
+            return name.Contains("ground") || name.Contains("floor");
+        }
+
         private void Start()
         {
             if (defaultWallpaper != null) Apply(defaultWallpaper);
             if (defaultFloor != null) Apply(defaultFloor);
         }
 
-        /// <summary>종류에 따라 알맞은 렌더러에 스프라이트를 넣는다.</summary>
+        /// <summary>종류에 따라 알맞은 렌더러들에 스프라이트를 넣는다.</summary>
         public void Apply(RoomSurfaceDefinition definition)
         {
             if (definition == null || definition.sprite == null) return;
 
             if (definition.kind == RoomSurfaceKind.Wallpaper)
             {
-                SetSprite(wallLeft, definition.sprite);
-                SetSprite(wallRight, definition.sprite);
+                SetSprites(wallRenderers, definition.sprite);
                 CurrentWallpaper = definition;
             }
             else
             {
-                SetSprite(floor, definition.sprite);
+                SetSprites(floorRenderers, definition.sprite);
                 CurrentFloor = definition;
             }
+
+            // 벽/바닥 스프라이트가 바뀌면 3D 두께 부분의 색도 다시 맞춰야 한다.
+            // 이걸 빼먹으면 벽면만 바뀌고 모서리 두께는 이전 색으로 남는다.
+            if (atmosphere != null) atmosphere.RefreshAll();
 
             SurfaceChanged?.Invoke(definition.kind, definition);
         }
@@ -81,8 +94,8 @@ namespace Zzapmagochi.Room
         {
             if (catalog == null) return;
 
-            var wallSprite = wallLeft != null ? wallLeft.sprite : null;
-            var floorSprite = floor != null ? floor.sprite : null;
+            var wallSprite = FirstSprite(wallRenderers);
+            var floorSprite = FirstSprite(floorRenderers);
 
             foreach (var definition in catalog)
             {
@@ -120,9 +133,22 @@ namespace Zzapmagochi.Room
             }
         }
 
-        private static void SetSprite(SpriteRenderer renderer, Sprite sprite)
+        private static Sprite FirstSprite(List<SpriteRenderer> renderers)
         {
-            if (renderer != null) renderer.sprite = sprite;
+            foreach (var renderer in renderers)
+            {
+                if (renderer != null && renderer.sprite != null) return renderer.sprite;
+            }
+
+            return null;
+        }
+
+        private static void SetSprites(List<SpriteRenderer> renderers, Sprite sprite)
+        {
+            foreach (var renderer in renderers)
+            {
+                if (renderer != null) renderer.sprite = sprite;
+            }
         }
     }
 }

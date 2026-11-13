@@ -18,4 +18,4 @@ MonoBehaviour:
   surface: 0
   blocksPath: 1
   allowRotation: 1
-  prefab: {fileID: 7430306993884515161, guid: ac9d8d2d61d18664a961c3246b489f81, type: 3}
+  prefab: {fileID: 4628502251225023082, guid: ac9d8d2d61d18664a961c3246b489f81, type: 3}
