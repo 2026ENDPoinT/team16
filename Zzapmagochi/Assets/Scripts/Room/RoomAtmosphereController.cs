@@ -66,6 +66,7 @@ namespace Zzapmagochi.Room
 
         private MaterialPropertyBlock _mpb;
 
+        private static readonly int MainTexId          = Shader.PropertyToID("_MainTex");                                                       
         private static readonly int BaseColorId        = Shader.PropertyToID("_BaseColor");
         private static readonly int RoomLightColorId   = Shader.PropertyToID("_RoomLightColor");
         private static readonly int RoomLightIntId     = Shader.PropertyToID("_RoomLightIntensity");
@@ -78,8 +79,8 @@ namespace Zzapmagochi.Room
         private static readonly int ShadowColorId      = Shader.PropertyToID("_ShadowColor");
         private static readonly int SurfaceBrightId    = Shader.PropertyToID("_SurfaceBrightness");
         private static readonly int ZWriteId           = Shader.PropertyToID("_ZWrite");
-        private static readonly int MainTexId          = Shader.PropertyToID("_MainTex");                                                       
-        private static readonly int BaseColorId        = Shader.PropertyToID("_BaseColor"); 
+        
+
 
         private void OnEnable()
         {
