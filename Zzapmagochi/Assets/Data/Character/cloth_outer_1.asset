@@ -15,5 +15,5 @@ MonoBehaviour:
   id: cloth_outer_1
   displayName: "\uC678\uD22C B"
   slot: 0
-  idleSprite: {fileID: -2695883157292649763, guid: 2c87aaaad04df8a4fa2a97265aedc807, type: 3}
+  idleSprite: {fileID: 21300000, guid: 2c87aaaad04df8a4fa2a97265aedc807, type: 3}
   walkSprite: {fileID: 0}
