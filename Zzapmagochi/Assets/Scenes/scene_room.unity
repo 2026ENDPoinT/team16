@@ -2037,6 +2037,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 53daee797bede7342b927a8713af6994, type: 2}
   - {fileID: 11400000, guid: c2f5679ccde6dd94995363108ff3aaa4, type: 2}
   - {fileID: 11400000, guid: bbac8c53126c3b049aba704ace400666, type: 2}
+  - {fileID: 11400000, guid: 87b40172af0e5324dac3fcd43009c219, type: 2}
   ownedWallpapers:
   - {fileID: 11400000, guid: 76023fd0cb71a1149a4bd0a3ea4981d1, type: 2}
   - {fileID: 11400000, guid: 594ff7be3016b7b45aaab7f90e3c85b5, type: 2}

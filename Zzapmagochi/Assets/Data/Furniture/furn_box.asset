@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f27157bebcdc59b489276c9390308799, type: 3}
-  m_Name: furn_sofa
+  m_Name: furn_box
   m_EditorClassIdentifier: Assembly-CSharp::Zzapmagochi.Room.FurnitureDefinition
-  id: furn_sofa
-  displayName: "\uC1FC\uD30C"
-  size: {x: 2, y: 1, z: 1}
+  id: furn_box
+  displayName: "\uBC15\uC2A4"
+  size: {x: 1, y: 1, z: 1}
   surface: 0
   blocksPath: 1
   allowRotation: 1
-  prefab: {fileID: 6638967388461975350, guid: c8d4e092f64ba9b4a8bafab3767bf048, type: 3}
+  prefab: {fileID: 4628502251225023082, guid: fcbeab5168656b8478408ac4fae94a3b, type: 3}
