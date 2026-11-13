@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+result.txt
+sample_result.txt
+session_cookies.txt
+*.user
