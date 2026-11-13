@@ -1,19 +1,36 @@
-"""App authentication routes, exposed at /v1/auth/* (see API문서.md)."""
-from fastapi import APIRouter, Header, Request, status
+"""App authentication routes, exposed at /v1/auth/* (API문서.md)."""
+from fastapi import APIRouter, Header, Query, Request, status
 
 from app.core.auth_errors import AuthError, AuthRoute
 from app.core.auth_security import decode_access_token
 from app.repositories import auth_repository as repository
-from app.schemas.auth import AuthResponse, LoginRequest, RefreshRequest
+from app.schemas.auth import (
+    AuthResponse, LoginRequest, RefreshRequest, SignupRequest,
+    StudentIdAvailabilityResponse,
+)
 from app.services import auth_service
 
 router = APIRouter(prefix="/v1/auth", tags=["Auth"], route_class=AuthRoute)
 
 
+def _client_ip(request: Request) -> str:
+    # Do not trust client-supplied X-Forwarded-For unless a trusted proxy is configured.
+    return request.client.host if request.client else "unknown"
+
+
+@router.get("/check-id", response_model=StudentIdAvailabilityResponse)
+def check_id(request: Request, student_id: str = Query(..., alias="studentId")):
+    return auth_service.check_id(student_id, _client_ip(request))
+
+
+@router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+def signup(payload: SignupRequest, request: Request):
+    return auth_service.signup(payload.studentId, payload.password, _client_ip(request))
+
+
 @router.post("/login", response_model=AuthResponse, status_code=200)
 def login(payload: LoginRequest, request: Request):
-    ip_address = request.client.host if request.client else "unknown"
-    return auth_service.login(payload.studentId, payload.password, ip_address)
+    return auth_service.login(payload.studentId, payload.password, _client_ip(request))
 
 
 @router.post("/refresh", response_model=AuthResponse, status_code=200)
