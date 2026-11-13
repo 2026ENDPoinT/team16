@@ -70,7 +70,7 @@ namespace Zzapmagochi.Character
             if (placement != null) placement.FurniturePlaced -= OnFurniturePlaced;
 
             StopLoop();
-            if (_parts != null) _parts.SetWalking(false);
+            if (_parts != null) _parts.StopWalkCycle();
         }
 
         private void StopLoop()
@@ -103,9 +103,9 @@ namespace Zzapmagochi.Character
             if (RoomPathfinder.TryFindNearestWalkable(grid, CurrentCell, out var free))
             {
                 // 밀려나는 것이므로 A* 로 돌아가지 않고 가장 가까운 빈 칸으로 곧장 비킨다.
-                _parts.SetWalking(true);
+                _parts.StartWalkCycle();
                 yield return StartCoroutine(StepTo(free, pushSpeed));
-                _parts.SetWalking(false);
+                _parts.StopWalkCycle();
             }
             else
             {
@@ -163,7 +163,7 @@ namespace Zzapmagochi.Character
         {
             if (path.Count == 0) yield break;
 
-            _parts.SetWalking(true);
+            _parts.StartWalkCycle();
 
             foreach (var step in path)
             {
@@ -173,7 +173,7 @@ namespace Zzapmagochi.Character
                 yield return StartCoroutine(StepTo(step, moveSpeed));
             }
 
-            _parts.SetWalking(false);
+            _parts.StopWalkCycle();
         }
 
         private IEnumerator StepTo(Vector2Int cell, float speed)

@@ -51,6 +51,9 @@ public class CharacterParts : MonoBehaviour
     [Tooltip("걷기/대기 전환 간격(초)")]
     [SerializeField] private float walkLoopInterval = 0.75f;
 
+    [Tooltip("이동 중 걸음 사이클 간격(초). 걷기 포즈와 대기 포즈를 이 간격으로 번갈아 보여준다.")]
+    [SerializeField] private float walkCycleInterval = 0.22f;
+
     /// <summary>생성된 파츠. 키는 CharacterBody 의 필드 이름(body, head, hair_front ...).</summary>
     private readonly Dictionary<string, SpriteRenderer> _renderers =
         new Dictionary<string, SpriteRenderer>();
@@ -61,6 +64,9 @@ public class CharacterParts : MonoBehaviour
 
     private bool _walking;
     private Coroutine _walkRoutine;
+
+    /// <summary>이동 중 걸음 사이클. 제자리에 서면 멈춘다.</summary>
+    private Coroutine _cycleRoutine;
 
     public IReadOnlyDictionary<string, SpriteRenderer> Renderers => _renderers;
     public bool IsWalking => _walking;
@@ -216,6 +222,51 @@ public class CharacterParts : MonoBehaviour
 
         if (_walkRoutine == null && isActiveAndEnabled)
             _walkRoutine = StartCoroutine(Walk());
+    }
+
+    /// <summary>
+    /// 이동 중 걸음 사이클을 시작한다.
+    /// 걷기 포즈 한 장으로 고정하면 미끄러지듯 보이므로,
+    /// shoe_walk/shoe_idle · cloth_bottom_walk/cloth_bottom_idle · leg_walk/leg_idle 을
+    /// 일정 간격으로 번갈아 보여 준다.
+    /// </summary>
+    public void StartWalkCycle()
+    {
+        if (_cycleRoutine != null || !isActiveAndEnabled) return;
+        _cycleRoutine = StartCoroutine(WalkCycle());
+    }
+
+    /// <summary>걸음 사이클을 멈추고 대기 포즈로 되돌린다.</summary>
+    public void StopWalkCycle()
+    {
+        if (_cycleRoutine != null)
+        {
+            StopCoroutine(_cycleRoutine);
+            _cycleRoutine = null;
+        }
+
+        SetWalking(false);
+    }
+
+    private IEnumerator WalkCycle()
+    {
+        var interval = Mathf.Max(0.02f, walkCycleInterval);
+
+        while (true)
+        {
+            SetWalking(true);
+            yield return new WaitForSeconds(interval);
+            SetWalking(false);
+            yield return new WaitForSeconds(interval);
+        }
+    }
+
+    private void OnDisable()
+    {
+        // 비활성화되면 유니티가 코루틴을 멈추므로 핸들을 비워 둔다.
+        // 안 그러면 다시 켰을 때 StartWalkCycle 이 이미 돈다고 착각한다.
+        _cycleRoutine = null;
+        _walkRoutine = null;
     }
 
     private IEnumerator Walk()
