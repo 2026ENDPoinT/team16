@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0671d74105cc9d44ba73be53a2f96b0, type: 3}
+  m_Name: cloth_outer_1
+  m_EditorClassIdentifier: Assembly-CSharp::Zzapmagochi.Character.CharacterItemDefinition
+  id: cloth_outer_1
+  displayName: "\uC678\uD22C B"
+  slot: 0
+  idleSprite: {fileID: -2695883157292649763, guid: 2c87aaaad04df8a4fa2a97265aedc807, type: 3}
+  walkSprite: {fileID: 0}
