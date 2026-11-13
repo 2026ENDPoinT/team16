@@ -63,26 +63,44 @@ namespace Zzapmagochi.Net
             int width = Mathf.Max(64, targetWidth);
             int height = Mathf.Max(32, targetHeight);
 
-            int firstDayOffset = 0;
-            if (payload.days != null && payload.days.Count > 0 && DateTime.TryParse(payload.days[0].date, out DateTime firstDate))
-                firstDayOffset = (int)firstDate.DayOfWeek;
-
-            int dayCount = payload.days != null ? payload.days.Count : 0;
-            int totalCells = firstDayOffset + dayCount;
-            int totalWeeks = Mathf.Max(1, Mathf.CeilToInt(totalCells / 7f));
             const int daysPerWeek = 7;
+            // 가로:세로 2:1 (400x200) 비율의 액자 화면을 빈 여백 없이 꽉 채우도록
+            // 세로 7일 기준 가로 14주(최근 약 3개월 = 최대 98일)의 최근 스트릭만 크게 렌더링합니다.
+            const int recentWeeksToShow = 14;
 
-            int gap = 1;
-            int cellSize = 6;
+            var allDays = payload.days ?? new List<DayContribution>();
+            int endOffset = 0;
+            if (allDays.Count > 0 && DateTime.TryParse(allDays[allDays.Count - 1].date, out DateTime lastDate))
+            {
+                // 마지막 날짜가 토요일(6)이 아니면 이번 주 남은 칸만큼 비워둠
+                endOffset = 6 - (int)lastDate.DayOfWeek;
+            }
+
+            int maxRecentDays = recentWeeksToShow * daysPerWeek - endOffset;
+            int takeCount = Mathf.Min(allDays.Count, maxRecentDays);
+            int startIndex = Mathf.Max(0, allDays.Count - takeCount);
+
+            int firstDayOffset = 0;
+            if (takeCount > 0 && DateTime.TryParse(allDays[startIndex].date, out DateTime firstDate))
+            {
+                firstDayOffset = (int)firstDate.DayOfWeek;
+            }
+
+            int totalCells = firstDayOffset + takeCount;
+            int totalWeeks = Mathf.Max(1, Mathf.CeilToInt(totalCells / 7f));
+
+            // 400x200 화면을 꽉 채우도록 여백(padding)과 칸 크기(cellSize) 계산
+            // 14주 x 7일일 때: cellSize = 24px, gap = 4px -> 가로 388px, 세로 192px로 액자에 꽉 참!
+            int gap = 4;
+            int padX = 6;
+            int padY = 4;
+
+            int cellW = (width - padX * 2 - Mathf.Max(0, totalWeeks - 1) * gap) / totalWeeks;
+            int cellH = (height - padY * 2 - (daysPerWeek - 1) * gap) / daysPerWeek;
+            int cellSize = Mathf.Max(4, Mathf.Min(cellW, cellH));
+
             int gridW = totalWeeks * cellSize + Mathf.Max(0, totalWeeks - 1) * gap;
             int gridH = daysPerWeek * cellSize + (daysPerWeek - 1) * gap;
-
-            if (gridW > width - 16)
-            {
-                cellSize = Mathf.Max(2, (width - 16 - (totalWeeks - 1) * gap) / totalWeeks);
-                gridW = totalWeeks * cellSize + Mathf.Max(0, totalWeeks - 1) * gap;
-                gridH = daysPerWeek * cellSize + (daysPerWeek - 1) * gap;
-            }
 
             int originX = (width - gridW) / 2;
             int originY = (height - gridH) / 2;
@@ -101,8 +119,7 @@ namespace Zzapmagochi.Net
             };
 
             Color32 bgDark = new Color32(13, 17, 23, 255);
-            Color32 panelBorder = new Color32(48, 54, 61, 255);
-            Color32 emptySlot = new Color32(22, 27, 34, 255);
+            Color32 emptySlot = new Color32(28, 35, 45, 255);
             Color32 black = new Color32(0, 0, 0, 255);
 
             Color32[] albedoPixels = new Color32[width * height];
@@ -116,19 +133,11 @@ namespace Zzapmagochi.Net
             else
             {
                 Array.Fill(albedoPixels, bgDark);
-
-                int boxPadX = 10;
-                int boxPadY = 14;
-                DrawRectBorder(
-                    albedoPixels, width, height,
-                    originX - boxPadX, originY - boxPadY,
-                    gridW + boxPadX * 2, gridH + boxPadY * 2,
-                    panelBorder);
             }
 
             Array.Fill(emissionPixels, black);
 
-            for (int i = 0; i < dayCount; i++)
+            for (int i = 0; i < takeCount; i++)
             {
                 int gridIndex = firstDayOffset + i;
                 int weekIndex = gridIndex / 7;
@@ -138,7 +147,7 @@ namespace Zzapmagochi.Net
                 int startX = originX + weekIndex * (cellSize + gap);
                 int startY = originY + invertedY * (cellSize + gap);
 
-                ContributionLevel lv = payload.days[i].level;
+                ContributionLevel lv = allDays[startIndex + i].level;
                 Color32 cellAlbedo = GetLevelColor(lv, emptySlot);
                 Color32 cellEmission = (lv == ContributionLevel.None) ? black : cellAlbedo;
 
