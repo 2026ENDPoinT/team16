@@ -19,3 +19,8 @@ def health() -> dict[str, str]:
 # Added by auth_install.py (app-local accounts only)
 from app.api.v1.auth import router as auth_router
 app.include_router(auth_router)
+
+# Read-only admin user list, added by admin_users_install.py
+from app.api.v1.admin_users import router as admin_users_router
+app.include_router(admin_users_router)
+
