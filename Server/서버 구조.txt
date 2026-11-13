@@ -1,0 +1,36 @@
+Server/
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   │
+│   ├── api/
+│   │   └── v1/
+│   │       ├── router.py
+│   │       ├── auth.py
+│   │       ├── me.py
+│   │       ├── users.py
+│   │       ├── characters.py
+│   │       ├── tasks.py
+│   │       ├── sync.py
+│   │       ├── room.py
+│   │       ├── shop.py
+│   │       ├── external.py
+│   │       ├── friends.py
+│   │       ├── awards.py
+│   │       └── admin.py
+│   │
+│   ├── services/          # 비즈니스 로직
+│   ├── repositories/      # DB 접근
+│   ├── models/            # DB 모델
+│   ├── schemas/           # 요청/응답 형식
+│   ├── core/              # 환경설정 및 보안
+│   └── db/                # DB 연결
+│
+├── data/                  # SQLite DB 저장 위치
+├── tests/
+│   └── test_health.py
+│
+├── .env
+├── .gitignore
+├── requirements.txt
+└── README.md

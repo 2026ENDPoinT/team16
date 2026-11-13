@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite3
+*.db-journal
+.vscode/
+data/auth.sqlite3
+data/auth.sqlite3-*
+data/auth_jwt_secret.key
