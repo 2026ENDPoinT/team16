@@ -9,6 +9,9 @@ namespace Zzapmagochi.Net
 {
     public static class GitHubStreakGenerator
     {
+        public const int DefaultTextureWidth = 400;
+        public const int DefaultTextureHeight = 200;
+
         private const string GraphQLEndpoint = "https://api.github.com/graphql";
         private const string PublicFallbackEndpoint = "https://github-contributions-api.jogruber.de/v4/{0}?y=last";
 
@@ -24,21 +27,16 @@ namespace Zzapmagochi.Net
         [Serializable] private class PublicApiRoot { public List<PublicApiDay> contributions; }
         [Serializable] private class PublicApiDay { public string date; public int count; public int level; }
 
-        /// <summary>
-        /// GitHub에서 스트릭 데이터를 가져와 3D 가구용 텍스처(Albedo + Emission) 및 PNG 스트림 번들로 반환합니다.
-        /// </summary>
         public static async Task<GitHubStreak3DBundle> Fetch3DBundleAsync(
             string githubUsername,
             string oauthToken = null,
-            string studentId = null)
+            string studentId = null,
+            Texture2D backgroundTexture = null)
         {
             var payload = await FetchPayloadAsync(githubUsername, oauthToken, studentId);
-            return Build3DBundleFromPayload(payload);
+            return Build3DBundleFromPayload(payload, DefaultTextureWidth, DefaultTextureHeight, backgroundTexture);
         }
 
-        /// <summary>
-        /// 원시 스트릭 데이터(JSON DTO)만 가져옵니다.
-        /// </summary>
         public static async Task<GitHubStreakPayload> FetchPayloadAsync(
             string githubUsername,
             string oauthToken = null,
@@ -56,27 +54,39 @@ namespace Zzapmagochi.Net
             return payload;
         }
 
-        /// <summary>
-        /// 이미 보유한 데이터 스트림(Payload)이나 PNG 바이트를 3D 텍스처 번들로 변환합니다.
-        /// </summary>
         public static GitHubStreak3DBundle Build3DBundleFromPayload(
             GitHubStreakPayload payload,
-            int cellSize = 8,
-            int gap = 2,
-            int padding = 8)
+            int targetWidth = DefaultTextureWidth,
+            int targetHeight = DefaultTextureHeight,
+            Texture2D backgroundTexture = null)
         {
+            int width = Mathf.Max(64, targetWidth);
+            int height = Mathf.Max(32, targetHeight);
+
             int firstDayOffset = 0;
-            if (payload.days.Count > 0 && DateTime.TryParse(payload.days[0].date, out DateTime firstDate))
+            if (payload.days != null && payload.days.Count > 0 && DateTime.TryParse(payload.days[0].date, out DateTime firstDate))
                 firstDayOffset = (int)firstDate.DayOfWeek;
 
-            int totalCells = firstDayOffset + payload.days.Count;
-            int totalWeeks = Mathf.CeilToInt(totalCells / 7f);
+            int dayCount = payload.days != null ? payload.days.Count : 0;
+            int totalCells = firstDayOffset + dayCount;
+            int totalWeeks = Mathf.Max(1, Mathf.CeilToInt(totalCells / 7f));
             const int daysPerWeek = 7;
 
-            int width = padding * 2 + totalWeeks * cellSize + Mathf.Max(0, totalWeeks - 1) * gap;
-            int height = padding * 2 + daysPerWeek * cellSize + (daysPerWeek - 1) * gap;
+            int gap = 1;
+            int cellSize = 6;
+            int gridW = totalWeeks * cellSize + Mathf.Max(0, totalWeeks - 1) * gap;
+            int gridH = daysPerWeek * cellSize + (daysPerWeek - 1) * gap;
 
-            // 3D 메쉬 위에서 도트 각이 또렷하게 살아나도록 Point 필터 및 AnisoLevel 설정
+            if (gridW > width - 16)
+            {
+                cellSize = Mathf.Max(2, (width - 16 - (totalWeeks - 1) * gap) / totalWeeks);
+                gridW = totalWeeks * cellSize + Mathf.Max(0, totalWeeks - 1) * gap;
+                gridH = daysPerWeek * cellSize + (daysPerWeek - 1) * gap;
+            }
+
+            int originX = (width - gridW) / 2;
+            int originY = (height - gridH) / 2;
+
             Texture2D albedoTex = new Texture2D(width, height, TextureFormat.RGBA32, mipChain: false)
             {
                 filterMode = FilterMode.Point,
@@ -90,37 +100,60 @@ namespace Zzapmagochi.Net
                 wrapMode = TextureWrapMode.Clamp
             };
 
-            Color32 bgDark = new Color32(13, 17, 23, 255);      // #0d1117 보드 배경색
-            Color32 emptySlot = new Color32(22, 27, 34, 255);   // #161b22 빈 칸(Level 0)
-            Color32 black = new Color32(0, 0, 0, 255);          // Emission 없음
+            Color32 bgDark = new Color32(13, 17, 23, 255);
+            Color32 panelBorder = new Color32(48, 54, 61, 255);
+            Color32 emptySlot = new Color32(22, 27, 34, 255);
+            Color32 black = new Color32(0, 0, 0, 255);
 
             Color32[] albedoPixels = new Color32[width * height];
             Color32[] emissionPixels = new Color32[width * height];
 
-            Array.Fill(albedoPixels, bgDark);
+            if (backgroundTexture != null && backgroundTexture.isReadable &&
+                backgroundTexture.width == width && backgroundTexture.height == height)
+            {
+                albedoPixels = backgroundTexture.GetPixels32();
+            }
+            else
+            {
+                Array.Fill(albedoPixels, bgDark);
+
+                int boxPadX = 10;
+                int boxPadY = 14;
+                DrawRectBorder(
+                    albedoPixels, width, height,
+                    originX - boxPadX, originY - boxPadY,
+                    gridW + boxPadX * 2, gridH + boxPadY * 2,
+                    panelBorder);
+            }
+
             Array.Fill(emissionPixels, black);
 
-            for (int i = 0; i < payload.days.Count; i++)
+            for (int i = 0; i < dayCount; i++)
             {
                 int gridIndex = firstDayOffset + i;
                 int weekIndex = gridIndex / 7;
                 int dayOfWeek = gridIndex % 7;
-                int invertedY = (daysPerWeek - 1) - dayOfWeek; // 일요일이 상단에 오도록 Y축 보정
+                int invertedY = (daysPerWeek - 1) - dayOfWeek;
 
-                int startX = padding + weekIndex * (cellSize + gap);
-                int startY = padding + invertedY * (cellSize + gap);
+                int startX = originX + weekIndex * (cellSize + gap);
+                int startY = originY + invertedY * (cellSize + gap);
 
                 ContributionLevel lv = payload.days[i].level;
                 Color32 cellAlbedo = GetLevelColor(lv, emptySlot);
-                // 커밋이 있는 칸(Level 1~4)만 3D 공간에서 자체 발광하도록 Emission 픽셀 기록
                 Color32 cellEmission = (lv == ContributionLevel.None) ? black : cellAlbedo;
 
                 for (int y = 0; y < cellSize; y++)
                 {
-                    int rowOffset = (startY + y) * width;
+                    int py = startY + y;
+                    if (py < 0 || py >= height) continue;
+                    int rowOffset = py * width;
+
                     for (int x = 0; x < cellSize; x++)
                     {
-                        int idx = rowOffset + startX + x;
+                        int px = startX + x;
+                        if (px < 0 || px >= width) continue;
+
+                        int idx = rowOffset + px;
                         albedoPixels[idx] = cellAlbedo;
                         emissionPixels[idx] = cellEmission;
                     }
@@ -137,12 +170,31 @@ namespace Zzapmagochi.Net
             return new GitHubStreak3DBundle(payload, albedoTex, emissionTex, pngStream);
         }
 
+        private static void DrawRectBorder(Color32[] pixels, int texW, int texH, int rx, int ry, int rw, int rh, Color32 color)
+        {
+            int xMin = Mathf.Clamp(rx, 0, texW - 1);
+            int xMax = Mathf.Clamp(rx + rw - 1, 0, texW - 1);
+            int yMin = Mathf.Clamp(ry, 0, texH - 1);
+            int yMax = Mathf.Clamp(ry + rh - 1, 0, texH - 1);
+
+            for (int x = xMin; x <= xMax; x++)
+            {
+                pixels[yMin * texW + x] = color;
+                pixels[yMax * texW + x] = color;
+            }
+            for (int y = yMin; y <= yMax; y++)
+            {
+                pixels[y * texW + xMin] = color;
+                pixels[y * texW + xMax] = color;
+            }
+        }
+
         private static Color32 GetLevelColor(ContributionLevel level, Color32 emptyColor) => level switch
         {
-            ContributionLevel.FirstQuarter  => new Color32(14, 68, 41, 255),   // #0e4429
-            ContributionLevel.SecondQuarter => new Color32(0, 109, 50, 255),   // #006d32
-            ContributionLevel.ThirdQuarter  => new Color32(38, 166, 65, 255),  // #26a641
-            ContributionLevel.FourthQuarter => new Color32(57, 211, 83, 255),  // #39d353
+            ContributionLevel.FirstQuarter  => new Color32(14, 68, 41, 255),
+            ContributionLevel.SecondQuarter => new Color32(0, 109, 50, 255),
+            ContributionLevel.ThirdQuarter  => new Color32(38, 166, 65, 255),
+            ContributionLevel.FourthQuarter => new Color32(57, 211, 83, 255),
             _                               => emptyColor
         };
 
@@ -260,7 +312,6 @@ namespace Zzapmagochi.Net
             payload.currentStreak = current;
         }
 
-        /// <summary>오프라인/Mock 테스트용 365일 스트릭 생성</summary>
         public static GitHubStreakPayload CreateMockPayload(string studentId, string githubUsername)
         {
             var payload = new GitHubStreakPayload

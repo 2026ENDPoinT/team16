@@ -1,18 +1,24 @@
 using System;
+using System.Threading.Tasks;
 using UnityEngine;
 using Zzapmagochi.Core;
 using Zzapmagochi.Net;
 
 namespace Zzapmagochi.Room
 {
-    /// <summary>
-    /// 3D 자취방 벽면의 깃허브 스트릭 가구(액자/전광판) 컨트롤러
-    /// </summary>
     public class GitHubStreakFurniture3D : MonoBehaviour
     {
-        [Header("3D 가구 화면 MeshRenderer (Quad 또는 액자 내부 스크린 메쉬)")]
+        [Header("3D 가구 화면 (비워두면 자식 'Canvas'를 자동 탐색)")]
         [SerializeField] private MeshRenderer screenMeshRenderer;
+        [SerializeField] private SpriteRenderer screenSpriteRenderer;
         [SerializeField] private int screenMaterialIndex = 0;
+
+        [Header("해상도 (가로 2 : 세로 1 유닛 = 400 x 200 px)")]
+        [SerializeField] private int textureWidth = 400;
+        [SerializeField] private int textureHeight = 200;
+
+        [Tooltip("선택사항: 400x200 배경 이미지(Read/Write Enabled)를 넣으면 그 위에 잔디를 찍습니다.")]
+        [SerializeField] private Texture2D customBackgroundTexture;
 
         [Header("3D 발광(Emission) 강도 설정")]
         [SerializeField] private bool enableEmission = true;
@@ -21,10 +27,13 @@ namespace Zzapmagochi.Room
         [Header("테스트용 GitHub ID (비워두면 Session 학번 기반 Mock 로드)")]
         [SerializeField] private string testGithubUsername = "torvalds";
 
+        private static GitHubStreakPayload _cachedPayload;
+        private static string _cachedKey;
+
         private GitHubStreak3DBundle _bundle;
+        private Sprite _generatedSprite;
         private MaterialPropertyBlock _mpb;
 
-        // URP Lit / Unlit 공통 셰이더 프로퍼티 ID
         private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
         private static readonly int MainTexId = Shader.PropertyToID("_MainTex");
         private static readonly int EmissionMapId = Shader.PropertyToID("_EmissionMap");
@@ -33,6 +42,7 @@ namespace Zzapmagochi.Room
         private void Awake()
         {
             _mpb = new MaterialPropertyBlock();
+            AutoFindRenderers();
         }
 
         private async void Start()
@@ -40,29 +50,66 @@ namespace Zzapmagochi.Room
             await RefreshStreakBoardAsync(testGithubUsername);
         }
 
-        /// <summary>
-        /// 외부(설정창 연동 완료 시점 또는 타 유저 방 입장 시점)에서 호출하여 3D 가구 화면을 갱신합니다.
-        /// </summary>
-        public async System.Threading.Tasks.Task RefreshStreakBoardAsync(string githubUsername = null, string oauthToken = null)
+        private void AutoFindRenderers()
+        {
+            if (screenMeshRenderer == null)
+            {
+                var canvasChild = transform.Find("Canvas");
+                if (canvasChild != null)
+                    screenMeshRenderer = canvasChild.GetComponent<MeshRenderer>();
+
+                if (screenMeshRenderer == null)
+                    screenMeshRenderer = GetComponentInChildren<MeshRenderer>();
+            }
+
+            if (screenSpriteRenderer == null)
+            {
+                screenSpriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            }
+        }
+
+        public async Task RefreshStreakBoardAsync(string githubUsername = null, string oauthToken = null, bool forceReload = false)
         {
             try
             {
-                _bundle?.Dispose();
+                string studentId = Session.StudentId ?? "20260001";
+                string cacheKey = !string.IsNullOrWhiteSpace(githubUsername)
+                    ? $"gh:{githubUsername}"
+                    : $"st:{studentId}";
 
-                if (!string.IsNullOrWhiteSpace(githubUsername))
+                if (forceReload || _cachedPayload == null || _cachedKey != cacheKey)
                 {
-                    // 실제 GitHub 데이터 스트림 + 3D 텍스처 번들 생성
-                    _bundle = await GitHubStreakGenerator.Fetch3DBundleAsync(
-                        githubUsername, oauthToken, Session.StudentId);
-                }
-                else
-                {
-                    // 연동 정보가 없을 때는 Api.Current (MockApiClient 등)를 통해 학번 기반으로 로드
-                    var payload = await Api.Current.GetGitHubStreak(Session.StudentId ?? "20260001");
-                    _bundle = GitHubStreakGenerator.Build3DBundleFromPayload(payload);
+                    if (!string.IsNullOrWhiteSpace(githubUsername))
+                    {
+                        try
+                        {
+                            _cachedPayload = await GitHubStreakGenerator.FetchPayloadAsync(
+                                githubUsername, oauthToken, studentId);
+                        }
+                        catch
+                        {
+                            _cachedPayload = GitHubStreakGenerator.CreateMockPayload(studentId, githubUsername);
+                        }
+                    }
+                    else
+                    {
+                        _cachedPayload = await Api.Current.GetGitHubStreak(studentId);
+                    }
+
+                    _cachedKey = cacheKey;
                 }
 
-                ApplyBundleTo3DMesh(_bundle);
+                if (this == null) return;
+
+                CleanupGeneratedAssets();
+
+                _bundle = GitHubStreakGenerator.Build3DBundleFromPayload(
+                    _cachedPayload,
+                    textureWidth,
+                    textureHeight,
+                    customBackgroundTexture);
+
+                ApplyBundleToRenderer(_bundle);
             }
             catch (Exception e)
             {
@@ -70,33 +117,57 @@ namespace Zzapmagochi.Room
             }
         }
 
-        private void ApplyBundleTo3DMesh(GitHubStreak3DBundle bundle)
+        private void ApplyBundleToRenderer(GitHubStreak3DBundle bundle)
         {
-            if (screenMeshRenderer == null || bundle == null) return;
+            if (bundle == null) return;
 
-            screenMeshRenderer.GetPropertyBlock(_mpb, screenMaterialIndex);
-
-            // Albedo (기본 텍스처) 주입
-            _mpb.SetTexture(BaseMapId, bundle.AlbedoTexture);
-            _mpb.SetTexture(MainTexId, bundle.AlbedoTexture);
-
-            // Emission (어두운 3D 방에서도 잔디가 빛나도록 발광 텍스처 주입)
-            if (enableEmission && bundle.EmissionTexture != null)
+            if (screenMeshRenderer != null)
             {
-                _mpb.SetTexture(EmissionMapId, bundle.EmissionTexture);
-                _mpb.SetColor(EmissionColorId, Color.white * emissionIntensity);
-            }
-            else
-            {
-                _mpb.SetColor(EmissionColorId, Color.black);
+                screenMeshRenderer.GetPropertyBlock(_mpb, screenMaterialIndex);
+
+                _mpb.SetTexture(BaseMapId, bundle.AlbedoTexture);
+                _mpb.SetTexture(MainTexId, bundle.AlbedoTexture);
+
+                if (enableEmission && bundle.EmissionTexture != null)
+                {
+                    _mpb.SetTexture(EmissionMapId, bundle.EmissionTexture);
+                    _mpb.SetColor(EmissionColorId, Color.white * emissionIntensity);
+                }
+                else
+                {
+                    _mpb.SetColor(EmissionColorId, Color.black);
+                }
+
+                screenMeshRenderer.SetPropertyBlock(_mpb, screenMaterialIndex);
             }
 
-            screenMeshRenderer.SetPropertyBlock(_mpb, screenMaterialIndex);
+            if (screenSpriteRenderer != null && bundle.AlbedoTexture != null)
+            {
+                _generatedSprite = Sprite.Create(
+                    bundle.AlbedoTexture,
+                    new Rect(0, 0, bundle.AlbedoTexture.width, bundle.AlbedoTexture.height),
+                    new Vector2(0.5f, 0.5f),
+                    pixelsPerUnit: 200f);
+
+                screenSpriteRenderer.sprite = _generatedSprite;
+            }
+        }
+
+        private void CleanupGeneratedAssets()
+        {
+            if (_generatedSprite != null)
+            {
+                Destroy(_generatedSprite);
+                _generatedSprite = null;
+            }
+
+            _bundle?.Dispose();
+            _bundle = null;
         }
 
         private void OnDestroy()
         {
-            _bundle?.Dispose();
+            CleanupGeneratedAssets();
         }
     }
 }

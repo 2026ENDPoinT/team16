@@ -92,6 +92,63 @@ namespace Zzapmagochi.UI
 
             if (sectionLabelTemplate != null)
                 sectionLabelTemplate.gameObject.SetActive(false);
+
+            EnsureScrollableList();
+        }
+
+        /// <summary>
+        /// 기존 itemContainer(Items)를 자동으로 ScrollRect Viewport 안에 넣어
+        /// 마우스 휠 및 드래그로 리스트가 부드럽게 스크롤되게 만듭니다.
+        /// </summary>
+        private void EnsureScrollableList()
+        {
+            if (itemContainer == null) return;
+            if (itemContainer.GetComponentInParent<ScrollRect>() != null) return;
+
+            var contentRect = itemContainer as RectTransform;
+            var parentRect = contentRect != null ? contentRect.parent as RectTransform : null;
+            if (contentRect == null || parentRect == null) return;
+
+            var viewportGo = new GameObject(
+                "ItemsScrollViewport",
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(RectMask2D),
+                typeof(ScrollRect));
+
+            var viewportRect = viewportGo.GetComponent<RectTransform>();
+            viewportRect.SetParent(parentRect, false);
+            viewportRect.anchorMin = contentRect.anchorMin;
+            viewportRect.anchorMax = contentRect.anchorMax;
+            viewportRect.anchoredPosition = contentRect.anchoredPosition;
+            viewportRect.sizeDelta = contentRect.sizeDelta;
+            viewportRect.pivot = contentRect.pivot;
+            viewportRect.SetSiblingIndex(contentRect.GetSiblingIndex());
+
+            var bgImage = viewportGo.GetComponent<Image>();
+            bgImage.color = new Color(0f, 0f, 0f, 0.005f);
+            bgImage.raycastTarget = true;
+
+            contentRect.SetParent(viewportRect, false);
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = Vector2.zero;
+
+            var fitter = contentRect.GetComponent<ContentSizeFitter>();
+            if (fitter == null)
+                fitter = contentRect.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scroll = viewportGo.GetComponent<ScrollRect>();
+            scroll.viewport = viewportRect;
+            scroll.content = contentRect;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 35f;
         }
 
         private void OnEnable()
@@ -129,7 +186,6 @@ namespace Zzapmagochi.UI
 
         private void OnRemoveButtonClicked()
         {
-            // 제거 모드로 들어가면 ModeChanged 가 돌아와 인벤토리가 닫힌다.
             if (placement != null) placement.EnterRemoveMode();
         }
 
@@ -141,10 +197,10 @@ namespace Zzapmagochi.UI
                 _ = SaveRoomToServerAsync();
             }
             _wasPlacing = placing;
+
             if (inventoryRoot != null)
                 inventoryRoot.SetActive(mode == FurniturePlacementController.Mode.Browsing);
 
-            // 미리보기 중이거나 제거 중일 때 안내를 띄운다.
             var showHint = mode == FurniturePlacementController.Mode.Positioning
                            || mode == FurniturePlacementController.Mode.Removing;
 
@@ -160,8 +216,6 @@ namespace Zzapmagochi.UI
 
             if (mode != FurniturePlacementController.Mode.Browsing) return;
 
-            // 씬에 이미 깔려 있는 벽지·바닥을 선택 상태로 잡아 둔다.
-            // Start 에서 하면 RoomSurfaceController.Start 보다 먼저 돌 수 있다.
             if (!_captured && surfaces != null)
             {
                 var catalog = new List<RoomSurfaceDefinition>(ownedWallpapers);
@@ -265,7 +319,6 @@ namespace Zzapmagochi.UI
             }
         }
 
-        /// <summary>버튼 자식 중 "Icon" 이름의 Image 에 썸네일을 넣는다.</summary>
         private static void SetIcon(Button button, Sprite sprite)
         {
             var icon = button.transform.Find("Icon")?.GetComponent<Image>();
@@ -284,9 +337,6 @@ namespace Zzapmagochi.UI
         private void OnSurfaceClicked(RoomSurfaceDefinition definition)
         {
             if (surfaces == null) return;
-
-            // 벽지·바닥은 반드시 하나가 선택되어 있어야 하므로 해제는 없다.
-            // 이미 선택된 것을 다시 눌러도 그대로 둔다.
             if (surfaces.IsSelected(definition)) return;
 
             surfaces.Apply(definition);
@@ -294,110 +344,103 @@ namespace Zzapmagochi.UI
         }
 
         private async Task LoadRoomFromServerAsync()
+        {
+            if (!Session.IsAuthenticated) return;
+            await Task.Yield();
+
+            try
             {
-                if (!Session.IsAuthenticated) return;
-                await Task.Yield();
+                var me = await Api.Current.GetMe();
+                if (me == null || me.room == null) return;
 
-                try
+                _isRestoring = true;
+
+                if (surfaces != null)
                 {
-                    var me = await Api.Current.GetMe();
-                    if (me == null || me.room == null) return;
+                    var w = ownedWallpapers.Find(x => x != null && x.id == me.room.wallpaperId);
+                    if (w != null) surfaces.Apply(w);
 
-                    _isRestoring = true;
+                    var f = ownedFloors.Find(x => x != null && x.id == me.room.floorId);
+                    if (f != null) surfaces.Apply(f);
 
-                    if (surfaces != null)
+                    _captured = true;
+                    RefreshSurfaceSelection();
+                }
+
+                if (placement != null && me.room.placements != null)
+                {
+                    var old = FindObjectsByType<PlacedFurniture>(FindObjectsSortMode.None);
+                    foreach (var item in old)
                     {
-                        var w = ownedWallpapers.Find(
-                            x => x != null && x.id == me.room.wallpaperId);
-                        if (w != null) surfaces.Apply(w);
-
-                        var f = ownedFloors.Find(
-                            x => x != null && x.id == me.room.floorId);
-                        if (f != null) surfaces.Apply(f);
-
-                        _captured = true;
-                        RefreshSurfaceSelection();
+                        if (item != null)
+                            placement.RemoveFurniture(item);
                     }
 
-                    if (placement != null && me.room.placements != null)
+                    foreach (var p in me.room.placements)
                     {
-                        var old = FindObjectsByType<PlacedFurniture>(
-                            FindObjectsSortMode.None);
-                        foreach (var item in old)
-                        {
-                            if (item != null)
-                                placement.RemoveFurniture(item);
-                        }
+                        if (p == null) continue;
+                        var def = ownedFurniture.Find(x => x != null && x.id == p.furnitureId);
+                        if (def == null) continue;
 
-                        foreach (var p in me.room.placements)
-                        {
-                            if (p == null) continue;
-                            var def = ownedFurniture.Find(
-                                x => x != null && x.id == p.furnitureId);
-                            if (def == null) continue;
-
-                            var cell = new Vector3Int(
-                                p.gridX, p.gridY, p.gridZ);
-                            int rot = ((p.rotation / 90) % 4 + 4) % 4;
-                            placement.PlaceAt(def, cell, rot);
-                        }
+                        var cell = new Vector3Int(p.gridX, p.gridY, p.gridZ);
+                        int rot = ((p.rotation / 90) % 4 + 4) % 4;
+                        placement.PlaceAt(def, cell, rot);
                     }
                 }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"[RoomSync] Load failed: {e.Message}");
-                }
-                finally
-                {
-                    _isRestoring = false;
-                }
             }
-
-            private async Task SaveRoomToServerAsync()
+            catch (Exception e)
             {
-                if (!Session.IsAuthenticated || _isRestoring) return;
-
-                var req = new RoomUpdateRequest
-                {
-                    visibility = "friends",
-                    wallpaperId = surfaces != null &&
-                        surfaces.CurrentWallpaper != null
-                        ? surfaces.CurrentWallpaper.id
-                        : "wall_0",
-                    floorId = surfaces != null &&
-                        surfaces.CurrentFloor != null
-                        ? surfaces.CurrentFloor.id
-                        : "floor_0",
-                    placements = new List<RoomPlacementDto>()
-                };
-
-                var list = FindObjectsByType<PlacedFurniture>(
-                    FindObjectsSortMode.None);
-                foreach (var item in list)
-                {
-                    if (item == null || item.Definition == null) continue;
-                    var p = item.ToPlacement();
-                    if (string.IsNullOrEmpty(p.furnitureId)) continue;
-
-                    req.placements.Add(new RoomPlacementDto
-                    {
-                        furnitureId = p.furnitureId,
-                        gridX = p.gridX,
-                        gridY = p.gridY,
-                        gridZ = p.gridZ,
-                        rotation = p.rotation
-                    });
-                }
-
-                try
-                {
-                    await Api.Current.UpdateRoom(req);
-                }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"[RoomSync] Save failed: {e.Message}");
-                }
+                Debug.LogWarning($"[RoomSync] Load failed: {e.Message}");
             }
+            finally
+            {
+                _isRestoring = false;
+            }
+        }
+
+        private async Task SaveRoomToServerAsync()
+        {
+            if (!Session.IsAuthenticated || _isRestoring) return;
+
+            var req = new RoomUpdateRequest
+            {
+                visibility = "friends",
+                wallpaperId = surfaces != null && surfaces.CurrentWallpaper != null
+                    ? surfaces.CurrentWallpaper.id
+                    : "wall_0",
+                floorId = surfaces != null && surfaces.CurrentFloor != null
+                    ? surfaces.CurrentFloor.id
+                    : "floor_0",
+                placements = new List<RoomPlacementDto>()
+            };
+
+            var list = FindObjectsByType<PlacedFurniture>(FindObjectsSortMode.None);
+            foreach (var item in list)
+            {
+                if (item == null || item.Definition == null) continue;
+                var p = item.ToPlacement();
+                if (string.IsNullOrEmpty(p.furnitureId)) continue;
+
+                req.placements.Add(new RoomPlacementDto
+                {
+                    furnitureId = p.furnitureId,
+                    gridX = p.gridX,
+                    gridY = p.gridY,
+                    gridZ = p.gridZ,
+                    rotation = p.rotation
+                });
+            }
+
+            try
+            {
+                await Api.Current.UpdateRoom(req);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[RoomSync] Save failed: {e.Message}");
+            }
+        }
+
         private void OnSurfaceChanged(RoomSurfaceKind kind, RoomSurfaceDefinition definition)
         {
             RefreshSurfaceSelection();
