@@ -1,12 +1,25 @@
 """FastAPI 앱 진입점. 현재 구현 범위는 GET /health뿐이다."""
-from datetime import datetime, timezone
+from datetime import datetime, timezone                                                                                                         
+from pathlib import Path                                                                                                                        
+import sys                                                                                                                                      
+                                                                                                                                                    
+# 상위 폴더(team16)에서 실행하거나 열었을 때도 'app' 모듈을 찾을 수 있도록 경로 추가                                                            
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))                                                                                    
+                                                                                                                                                    
+from fastapi import FastAPI                                                                                                                     
+from fastapi.middleware.cors import CORSMiddleware                                                                                              
 
-from fastapi import FastAPI
-
-from app.api.v1.router import api_router
-from app.core.config import settings
-
-app = FastAPI(title=settings.app_name, version=settings.app_version)
+from app.api.v1.router import api_router                                                                                                        
+from app.core.config import settings                                                                                                            
+                                                                                                                                                    
+app = FastAPI(title=settings.app_name, version=settings.app_version)                                                                            
+app.add_middleware(                                                                                                                             
+    CORSMiddleware,                                                                                                                             
+    allow_origins=["*"],                                                                                                                        
+    allow_credentials=True,                                                                                                                     
+    allow_methods=["*"],                                                                                                                        
+    allow_headers=["*"],                                                                                                                        
+    )                                                                                                                                               
 app.include_router(api_router, prefix=settings.api_prefix)
 
 
