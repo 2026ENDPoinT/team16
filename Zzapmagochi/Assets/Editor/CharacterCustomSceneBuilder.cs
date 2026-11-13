@@ -6,6 +6,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 using Zzapmagochi.Character;
+using Zzapmagochi.Room;
 using Zzapmagochi.UI;
 
 namespace Zzapmagochi.EditorTools
@@ -65,6 +66,8 @@ namespace Zzapmagochi.EditorTools
                 Debug.LogError("[CharacterCustom] 씬에서 CharacterParts 를 찾지 못했습니다.");
                 return;
             }
+
+            EnsureWanderer(sceneCharacter);
 
             var preview = BuildPreviewStage(sceneCharacter, renderTexture);
             var customizer = EnsureCustomizer(sceneCharacter, preview);
@@ -286,6 +289,10 @@ namespace Zzapmagochi.EditorTools
 
             var cloneParts = clone.GetComponent<CharacterParts>();
 
+            // 미리보기 복제본까지 돌아다니면 안 된다. 복제로 따라온 컴포넌트를 떼어낸다.
+            foreach (var wanderer in clone.GetComponentsInChildren<CharacterRoomWanderer>(true))
+                Object.DestroyImmediate(wanderer);
+
             // 미리보기는 대기 포즈로 고정한다. 걷기 루프가 돌면 옷을 고르는 동안 깜빡인다.
             var so = new SerializedObject(cloneParts);
             so.FindProperty("autoWalkLoop").boolValue = false;
@@ -311,6 +318,33 @@ namespace Zzapmagochi.EditorTools
             framerSo.ApplyModifiedPropertiesWithoutUndo();
 
             return cloneParts;
+        }
+
+        /// <summary>씬의 캐릭터가 방을 돌아다니도록 컴포넌트를 붙이고 그리드를 연결한다.</summary>
+        private static void EnsureWanderer(CharacterParts sceneCharacter)
+        {
+            var go = sceneCharacter.gameObject;
+            var wanderer = go.GetComponent<CharacterRoomWanderer>()
+                           ?? go.AddComponent<CharacterRoomWanderer>();
+
+            var grid = Object.FindFirstObjectByType<RoomGrid>();
+            if (grid == null)
+                Debug.LogError("[CharacterCustom] RoomGrid 를 찾지 못해 배회 기능을 연결하지 못했습니다. "
+                               + "Furniture Placement 빌더를 먼저 실행하세요.");
+
+            var so = new SerializedObject(wanderer);
+            so.FindProperty("grid").objectReferenceValue = grid;
+            so.FindProperty("viewCamera").objectReferenceValue = Camera.main;
+            so.FindProperty("placement").objectReferenceValue =
+                Object.FindFirstObjectByType<FurniturePlacementController>();
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            // 배회 중에는 이동 상태에 맞춰 포즈를 바꾸므로 자동 걷기 루프는 꺼 둔다.
+            var partsSo = new SerializedObject(sceneCharacter);
+            partsSo.FindProperty("autoWalkLoop").boolValue = false;
+            partsSo.ApplyModifiedPropertiesWithoutUndo();
+
+            Debug.Log("[CharacterCustom] 캐릭터 배회 연결 완료");
         }
 
         private static CharacterCustomizer EnsureCustomizer(CharacterParts sceneCharacter,

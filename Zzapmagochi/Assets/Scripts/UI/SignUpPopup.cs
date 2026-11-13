@@ -53,8 +53,10 @@ namespace Zzapmagochi.UI
             if (idInput != null) idInput.onValueChanged.AddListener(_ => OnIdChanged());
             if (passwordInput != null) passwordInput.onValueChanged.AddListener(_ => RefreshPasswordStatus());
             if (passwordConfirmInput != null) passwordConfirmInput.onValueChanged.AddListener(_ => RefreshPasswordStatus());
-
-            Hide();
+            // Awake 에서 Hide() 를 부르지 않는다.
+            // 이 컴포넌트는 자기가 숨기는 root 위에 올라가 있어서,
+            // Show() 로 활성화되는 순간 Awake 가 돌아 다시 숨겨 버린다.
+            // 초기 숨김은 씬에서 비활성으로 저장해 두는 것으로 해결한다.
         }
 
         public void Show()

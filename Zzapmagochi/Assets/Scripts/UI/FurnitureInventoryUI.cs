@@ -38,6 +38,12 @@ namespace Zzapmagochi.UI
         [Tooltip("조작 안내 문구")]
         [SerializeField] private GameObject hintRoot;
 
+        [Tooltip("안내 문구 텍스트. 모드에 따라 내용을 바꾼다.")]
+        [SerializeField] private TMP_Text hintText;
+
+        [Tooltip("인벤토리 최상단의 '가구 제거' 버튼")]
+        [SerializeField] private Button removeButton;
+
         [Header("보유 가구")]
         [Tooltip("임시. 실제로는 서버의 인벤토리에서 받아온다 (API문서.md 3.1 inventory).")]
         [SerializeField] private List<FurnitureDefinition> ownedFurniture = new List<FurnitureDefinition>();
@@ -56,6 +62,9 @@ namespace Zzapmagochi.UI
         private const string EnterLabel = "가구 배치 모드";
         private const string ExitLabel = "배치 모드 종료";
 
+        private const string PlacingHint = "좌클릭 설치   ·   우클릭 취소   ·   R 회전   ·   ESC 종료";
+        private const string RemovingHint = "치울 가구를 클릭하세요   ·   우클릭 취소   ·   ESC 종료";
+
         private readonly List<Button> _spawned = new List<Button>();
 
         /// <summary>생성한 버튼 ↔ 벽지·바닥지. 선택 표시를 갱신할 때 쓴다.</summary>
@@ -68,6 +77,9 @@ namespace Zzapmagochi.UI
         {
             if (modeButton != null)
                 modeButton.onClick.AddListener(OnModeButtonClicked);
+
+            if (removeButton != null)
+                removeButton.onClick.AddListener(OnRemoveButtonClicked);
 
             if (itemButtonTemplate != null)
                 itemButtonTemplate.gameObject.SetActive(false);
@@ -107,6 +119,12 @@ namespace Zzapmagochi.UI
             if (placement != null) placement.TogglePlacementMode();
         }
 
+        private void OnRemoveButtonClicked()
+        {
+            // 제거 모드로 들어가면 ModeChanged 가 돌아와 인벤토리가 닫힌다.
+            if (placement != null) placement.EnterRemoveMode();
+        }
+
         private void OnModeChanged(FurniturePlacementController.Mode mode)
         {
             var placing = mode != FurniturePlacementController.Mode.Off;
@@ -114,8 +132,16 @@ namespace Zzapmagochi.UI
             if (inventoryRoot != null)
                 inventoryRoot.SetActive(mode == FurniturePlacementController.Mode.Browsing);
 
-            if (hintRoot != null)
-                hintRoot.SetActive(mode == FurniturePlacementController.Mode.Positioning);
+            // 미리보기 중이거나 제거 중일 때 안내를 띄운다.
+            var showHint = mode == FurniturePlacementController.Mode.Positioning
+                           || mode == FurniturePlacementController.Mode.Removing;
+
+            if (hintRoot != null) hintRoot.SetActive(showHint);
+
+            if (hintText != null && showHint)
+                hintText.text = mode == FurniturePlacementController.Mode.Removing
+                    ? RemovingHint
+                    : PlacingHint;
 
             if (modeButtonLabel != null)
                 modeButtonLabel.text = placing ? ExitLabel : EnterLabel;
