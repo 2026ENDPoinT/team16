@@ -2,7 +2,8 @@ Shader "Zzapmagochi/Room/LitRoomSurfaceWithCornerAO"
 {
     Properties
     {
-        [MainTexture] _MainTex ("Sprite / Surface Texture", 2D) = "white" {}
+        // SpriteRenderer가 스프라이트를 바꾸면 렌더러별 텍스처로 즉시 인식
+        [PerRendererData] [MainTexture] _MainTex ("Sprite / Surface Texture", 2D) = "white" {}
         [MainColor] _BaseColor ("Surface Tint", Color) = (1, 1, 1, 1)
 
         [Header(Room Lighting)]

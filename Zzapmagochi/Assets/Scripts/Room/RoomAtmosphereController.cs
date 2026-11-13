@@ -78,6 +78,8 @@ namespace Zzapmagochi.Room
         private static readonly int ShadowColorId      = Shader.PropertyToID("_ShadowColor");
         private static readonly int SurfaceBrightId    = Shader.PropertyToID("_SurfaceBrightness");
         private static readonly int ZWriteId           = Shader.PropertyToID("_ZWrite");
+        private static readonly int MainTexId          = Shader.PropertyToID("_MainTex");                                                       
+        private static readonly int BaseColorId        = Shader.PropertyToID("_BaseColor"); 
 
         private void OnEnable()
         {
@@ -215,6 +217,9 @@ namespace Zzapmagochi.Room
 
             if (roomRoot == null) return;
 
+            Sprite currentWallSprite = null;                                                                                                    
+            Sprite currentFloorSprite = null;
+
             // 2. 방 내부 벽/바닥 SpriteRenderer 적용
             // (캐릭터(sortingOrder 10~120) 및 가구 프리뷰(30000)가 잘리지 않도록 sortingOrder=-10, ZWrite=0 유지)
             var spriteRenderers = roomRoot.GetComponentsInChildren<SpriteRenderer>(true);
@@ -228,10 +233,18 @@ namespace Zzapmagochi.Room
                 sr.sortingOrder = -10;
 
                 bool isFloor = sr.name.Contains("ground") || sr.name.Contains("floor");
+
+                if (isFloor && currentFloorSprite == null) currentFloorSprite = sr.sprite;                                                      
+                if (!isFloor && currentWallSprite == null) currentWallSprite = sr. sprite;                                             
+
                 Color surfaceTint = isFloor ? flooringTint : wallpaperTint;
                 float faceBrightness = isFloor ? 0.98f : (Mathf.Abs(sr.transform.eulerAngles.y) > 45f ? 0.94f : 1.0f);
 
+                _mpb.Clear();    
                 sr.GetPropertyBlock(_mpb);
+                if (sr.sprite != null && sr.sprite.texture != null)                                                                             
+                        _mpb.SetTexture(MainTexId, sr.sprite.texture);
+
                 ApplyCommonShaderProps(_mpb, surfaceTint, faceBrightness, 0f);
                 sr.SetPropertyBlock(_mpb);
             }
@@ -240,11 +253,14 @@ namespace Zzapmagochi.Room
             var shellTf = roomRoot.Find(ShellObjectName);
             if (shellTf != null)
             {
-                Color matchedWallColor = SpriteBaseGreyTone * wallpaperTint * thicknessToneRatio;
-                matchedWallColor.a = 1f;
-
-                Color matchedFloorColor = SpriteBaseGreyTone * flooringTint * (thicknessToneRatio * 0.96f);
-                matchedFloorColor.a = 1f;
+                Color wallBaseTone = GetSpriteBaseTone(currentWallSprite, isFloor: false);                                                      
+                    Color floorBaseTone = GetSpriteBaseTone(currentFloorSprite, isFloor: true);                                                     
+                                                                                                                                                    
+                    Color matchedWallColor = wallBaseTone * wallpaperTint * thicknessToneRatio;                                                     
+                    matchedWallColor.a = 1f;                                                                                                        
+                                                                                                                                                    
+                    Color matchedFloorColor = floorBaseTone * flooringTint * (thicknessToneRatio * 0.96f);                                          
+                    matchedFloorColor.a = 1f;
 
                 var meshRenderers = shellTf.GetComponentsInChildren<MeshRenderer>(true);
                 foreach (var mr in meshRenderers)
@@ -259,7 +275,8 @@ namespace Zzapmagochi.Room
                     bool isFloorSlab = mr.name.Contains("Floor");
                     Color slabColor = isFloorSlab ? matchedFloorColor : matchedWallColor;
 
-                    mr.GetPropertyBlock(_mpb);
+                    _mpb.Clear();  
+                    _mpb.SetTexture(MainTexId, Texture2D.whiteTexture);   
                     ApplyCommonShaderProps(_mpb, slabColor, 1.0f, 1f);
                     mr.SetPropertyBlock(_mpb);
                 }
@@ -281,5 +298,27 @@ namespace Zzapmagochi.Room
             block.SetFloat(SurfaceBrightId, faceBrightness);
             block.SetFloat(ZWriteId, zWrite);
         }
+                                                                                                                                                            
+            private static Color GetSpriteBaseTone(Sprite sprite, bool isFloor)                                                                     
+            {                                                                                                                                       
+                if (sprite == null) return SpriteBaseGreyTone;                                                                                      
+                                                                                                                                                    
+                string n = sprite.name;                                                                                                             
+                if (!isFloor)                                                                                                                       
+                {                                                                                                                                   
+                    if (n.Contains("wall_1")) return new Color(0.91f, 0.80f, 0.49f, 1f); // 노란 벽지                                               
+                    if (n.Contains("wall_2")) return new Color(0.35f, 0.47f, 0.69f, 1f); // 파란 벽지                                               
+                    if (n.Contains("wall_3")) return new Color(0.48f, 0.73f, 0.64f, 1f); // 민트 벽지                                               
+                    return SpriteBaseGreyTone; // wall_0 (기본 회색)                                                                                
+                }                                                                                                                                   
+                else                                                                                                                                
+                {                                                                                                                                   
+                    if (n.Contains("ground_1")) return new Color(0.53f, 0.44f, 0.34f, 1f); // 밝은 우드 바닥                                        
+                    if (n.Contains("ground_2")) return new Color(0.45f, 0.35f, 0.37f, 1f); // 로즈 브라운 바닥                                      
+                    if (n.Contains("ground_3")) return new Color(0.48f, 0.38f, 0.27f, 1f); // 진한 우드 바닥                                        
+                    return SpriteBaseGreyTone; // ground_0 (기본 회색)                                                                              
+                }                                                                                                                                   
+            }                   
     }
+    
 }
