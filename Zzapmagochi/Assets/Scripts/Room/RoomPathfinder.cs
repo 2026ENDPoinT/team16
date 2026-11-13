@@ -116,6 +116,51 @@ namespace Zzapmagochi.Room
             return cells;
         }
 
+        /// <summary>
+        /// from 에서 가장 가까운 밟을 수 있는 칸을 찾는다.
+        /// 가구에 깔린 칸에서 빠져나올 때 쓰므로, 탐색 자체는 막힌 칸도 지나며 퍼진다.
+        /// (출발 칸이 이미 막혀 있어서 막힌 칸을 못 지나가게 하면 아무 데도 못 간다)
+        /// </summary>
+        public static bool TryFindNearestWalkable(RoomGrid grid, Vector2Int from, out Vector2Int result)
+        {
+            result = from;
+            if (grid == null) return false;
+
+            if (IsWalkable(grid, from))
+            {
+                result = from;
+                return true;
+            }
+
+            var visited = new HashSet<Vector2Int> { from };
+            var queue = new Queue<Vector2Int>();
+            queue.Enqueue(from);
+
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+
+                foreach (var dir in Directions)
+                {
+                    var next = current + dir;
+                    if (!visited.Add(next)) continue;
+
+                    var next3 = new Vector3Int(next.x, FloorY, next.y);
+                    if (!grid.IsInside(next3)) continue;
+
+                    if (IsWalkable(grid, next))
+                    {
+                        result = next;
+                        return true;
+                    }
+
+                    queue.Enqueue(next);
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>칸의 바닥 중앙 월드 좌표.</summary>
         public static Vector3 CellToWorld(RoomGrid grid, Vector2Int cell)
         {

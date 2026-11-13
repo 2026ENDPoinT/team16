@@ -335,6 +335,8 @@ namespace Zzapmagochi.EditorTools
             var so = new SerializedObject(wanderer);
             so.FindProperty("grid").objectReferenceValue = grid;
             so.FindProperty("viewCamera").objectReferenceValue = Camera.main;
+            so.FindProperty("placement").objectReferenceValue =
+                Object.FindFirstObjectByType<FurniturePlacementController>();
             so.ApplyModifiedPropertiesWithoutUndo();
 
             // 배회 중에는 이동 상태에 맞춰 포즈를 바꾸므로 자동 걷기 루프는 꺼 둔다.
