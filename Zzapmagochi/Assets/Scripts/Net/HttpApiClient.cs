@@ -114,6 +114,23 @@ namespace Zzapmagochi.Net
                 JsonUtility.ToJson(request));
         }
 
+        public async Task<RandomStudentIdResponse> GetRandomStudentId()
+        {
+            return await SendJsonAsync<RandomStudentIdResponse>(
+                "GET",
+                $"{BaseUrl}/room/random/student-id",
+                null);
+        }
+
+        public async Task<RoomVisitResponse> GetUserRoom(string studentId)
+        {
+            var escaped = UnityWebRequest.EscapeURL(studentId ?? string.Empty);
+            return await SendJsonAsync<RoomVisitResponse>(
+                "GET",
+                $"{BaseUrl}/room/{escaped}",
+                null);
+        }
+
         public async Task<GitHubStreakPayload> LinkGitHub(
             string githubUsername,
             string oauthToken = null)

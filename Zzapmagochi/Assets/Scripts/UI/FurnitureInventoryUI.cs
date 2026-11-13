@@ -294,64 +294,89 @@ namespace Zzapmagochi.UI
         }
 
         private async Task LoadRoomFromServerAsync()
+        {
+            if (!Session.IsAuthenticated) return;
+            await Task.Yield();
+
+            try
             {
-                if (!Session.IsAuthenticated) return;
-                await Task.Yield();
+                var me = await Api.Current.GetMe();
+                if (me == null || me.room == null) return;
 
-                try
+                ApplyRoomLayout(me.room);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[RoomSync] Load failed: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 서버에서 받은 방 레이아웃을 씬에 적용한다.
+        /// 내 방 복원과 다른 사람 방 방문이 같은 경로를 쓴다.
+        /// </summary>
+        public void ApplyRoomLayout(RoomLayoutDto room)
+        {
+            if (room == null) return;
+
+            // 복원 중에는 변경 이벤트가 서버 저장을 다시 호출하지 않도록 막는다.
+            _isRestoring = true;
+
+            try
+            {
+                if (surfaces != null)
                 {
-                    var me = await Api.Current.GetMe();
-                    if (me == null || me.room == null) return;
+                    var w = ownedWallpapers.Find(x => x != null && x.id == room.wallpaperId);
+                    if (w != null) surfaces.Apply(w);
 
-                    _isRestoring = true;
+                    var f = ownedFloors.Find(x => x != null && x.id == room.floorId);
+                    if (f != null) surfaces.Apply(f);
 
-                    if (surfaces != null)
+                    _captured = true;
+                    RefreshSurfaceSelection();
+                }
+
+                if (placement == null) return;
+
+                // 이전 방의 가구를 먼저 치운다. 안 그러면 두 방이 겹쳐 보인다.
+                var old = FindObjectsByType<PlacedFurniture>(FindObjectsSortMode.None);
+                foreach (var item in old)
+                {
+                    if (item != null) placement.RemoveFurniture(item);
+                }
+
+                if (room.placements == null) return;
+
+                foreach (var p in room.placements)
+                {
+                    if (p == null) continue;
+
+                    var def = ownedFurniture.Find(x => x != null && x.id == p.furnitureId);
+                    if (def == null)
                     {
-                        var w = ownedWallpapers.Find(
-                            x => x != null && x.id == me.room.wallpaperId);
-                        if (w != null) surfaces.Apply(w);
-
-                        var f = ownedFloors.Find(
-                            x => x != null && x.id == me.room.floorId);
-                        if (f != null) surfaces.Apply(f);
-
-                        _captured = true;
-                        RefreshSurfaceSelection();
+                        Debug.LogWarning($"[RoomSync] 모르는 가구 ID: {p.furnitureId}");
+                        continue;
                     }
 
-                    if (placement != null && me.room.placements != null)
-                    {
-                        var old = FindObjectsByType<PlacedFurniture>(
-                            FindObjectsSortMode.None);
-                        foreach (var item in old)
-                        {
-                            if (item != null)
-                                placement.RemoveFurniture(item);
-                        }
-
-                        foreach (var p in me.room.placements)
-                        {
-                            if (p == null) continue;
-                            var def = ownedFurniture.Find(
-                                x => x != null && x.id == p.furnitureId);
-                            if (def == null) continue;
-
-                            var cell = new Vector3Int(
-                                p.gridX, p.gridY, p.gridZ);
-                            int rot = ((p.rotation / 90) % 4 + 4) % 4;
-                            placement.PlaceAt(def, cell, rot);
-                        }
-                    }
-                }
-                catch (Exception e)
-                {
-                    Debug.LogWarning($"[RoomSync] Load failed: {e.Message}");
-                }
-                finally
-                {
-                    _isRestoring = false;
+                    var cell = new Vector3Int(p.gridX, p.gridY, p.gridZ);
+                    var rot = ((p.rotation / 90) % 4 + 4) % 4;
+                    placement.PlaceAt(def, cell, rot);
                 }
             }
+            finally
+            {
+                _isRestoring = false;
+            }
+        }
+
+        /// <summary>
+        /// 방 편집(가구 배치 모드) 가능 여부. 남의 방을 방문하는 동안에는 끈다.
+        /// </summary>
+        public void SetEditingAllowed(bool allowed)
+        {
+            if (!allowed && placement != null) placement.ExitPlacementMode();
+            if (modeButton != null) modeButton.gameObject.SetActive(allowed);
+        }
 
             private async Task SaveRoomToServerAsync()
             {

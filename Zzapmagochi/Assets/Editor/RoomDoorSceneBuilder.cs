@@ -4,6 +4,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
+using Zzapmagochi.Character;
 using Zzapmagochi.Room;
 using Zzapmagochi.UI;
 
@@ -55,8 +56,10 @@ namespace Zzapmagochi.EditorTools
 
             var friendPopup = BuildFriendListPopup(root.transform);
             var exitPopup = BuildExitPopup(root.transform, friendPopup);
+            var banner = BuildVisitBanner(root.transform, out var bannerLabel, out var returnButton);
 
             WireDoor(exitPopup);
+            WireVisitController(exitPopup, banner, bannerLabel, returnButton);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -167,6 +170,96 @@ namespace Zzapmagochi.EditorTools
 
             dim.gameObject.SetActive(false);
             return popup;
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // 방문 중 배너
+        // ─────────────────────────────────────────────────────────
+
+        /// <summary>남의 방을 보고 있다는 표시와 "내 방으로" 버튼.</summary>
+        private static GameObject BuildVisitBanner(Transform parent,
+            out TMP_Text label, out Button returnButton)
+        {
+            var bar = CreateImage("VisitBanner", parent, new Color(0f, 0f, 0f, 0.72f));
+            var rect = bar.rectTransform;
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = new Vector2(0f, -24f);
+            rect.sizeDelta = new Vector2(720f, 64f);
+
+            label = CreateText("Text", bar.transform, "", 22, TextColor, FontStyles.Bold);
+            var labelRect = label.rectTransform;
+            labelRect.anchorMin = new Vector2(0f, 0f);
+            labelRect.anchorMax = new Vector2(1f, 1f);
+            labelRect.offsetMin = new Vector2(24f, 0f);
+            labelRect.offsetMax = new Vector2(-200f, 0f);
+            label.alignment = TextAlignmentOptions.Left;
+
+            returnButton = CreateButton("ReturnButton", bar.transform, "내 방으로", PrimaryColor, 20);
+            var btnRect = returnButton.GetComponent<RectTransform>();
+            btnRect.anchorMin = new Vector2(1f, 0.5f);
+            btnRect.anchorMax = new Vector2(1f, 0.5f);
+            btnRect.pivot = new Vector2(1f, 0.5f);
+            btnRect.anchoredPosition = new Vector2(-12f, 0f);
+            btnRect.sizeDelta = new Vector2(160f, 44f);
+
+            bar.gameObject.SetActive(false);
+            return bar.gameObject;
+        }
+
+        private static void WireVisitController(RoomExitPopup exitPopup, GameObject banner,
+            TMP_Text bannerLabel, Button returnButton)
+        {
+            var host = GameObject.Find("RoomVisit") ?? new GameObject("RoomVisit");
+            var controller = host.GetComponent<RoomVisitController>()
+                             ?? host.AddComponent<RoomVisitController>();
+
+            var inventory = Object.FindFirstObjectByType<FurnitureInventoryUI>();
+            var customizer = Object.FindFirstObjectByType<CharacterCustomizer>();
+
+            // 미리보기 복제본이 아니라 방에 서 있는 캐릭터를 쓴다.
+            CharacterParts sceneCharacter = null;
+            foreach (var parts in Object.FindObjectsByType<CharacterParts>(FindObjectsSortMode.None))
+            {
+                if (parts.transform.position.x > 100f) continue;
+                sceneCharacter = parts;
+                break;
+            }
+
+            var so = new SerializedObject(controller);
+            so.FindProperty("inventoryUI").objectReferenceValue = inventory;
+            so.FindProperty("customizer").objectReferenceValue = customizer;
+            so.FindProperty("sceneCharacter").objectReferenceValue = sceneCharacter;
+            so.FindProperty("exitPopup").objectReferenceValue = exitPopup;
+            so.FindProperty("bannerRoot").objectReferenceValue = banner;
+            so.FindProperty("bannerText").objectReferenceValue = bannerLabel;
+            so.FindProperty("returnButton").objectReferenceValue = returnButton;
+
+            FillAssets<CharacterPresetDefinition>(so.FindProperty("presets"),
+                "t:CharacterPresetDefinition");
+            FillAssets<CharacterItemDefinition>(so.FindProperty("items"),
+                "t:CharacterItemDefinition");
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            Debug.Log("[RoomDoor] 무작위 방문 컨트롤러 연결 완료");
+        }
+
+        /// <summary>프로젝트의 에셋을 찾아 리스트 프로퍼티에 채운다.</summary>
+        private static void FillAssets<T>(SerializedProperty property, string filter)
+            where T : Object
+        {
+            if (property == null) return;
+
+            var guids = AssetDatabase.FindAssets(filter);
+            property.arraySize = guids.Length;
+
+            for (var i = 0; i < guids.Length; i++)
+            {
+                property.GetArrayElementAtIndex(i).objectReferenceValue =
+                    AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guids[i]));
+            }
         }
 
         // ─────────────────────────────────────────────────────────
