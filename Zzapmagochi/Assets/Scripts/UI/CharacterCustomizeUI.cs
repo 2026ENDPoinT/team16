@@ -1,8 +1,12 @@
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Zzapmagochi.Character;
+using Zzapmagochi.Core;
+using Zzapmagochi.Net;
 
 namespace Zzapmagochi.UI
 {
@@ -57,6 +61,8 @@ namespace Zzapmagochi.UI
             new Dictionary<CharacterPresetDefinition, Image>();
 
         private bool _open;
+        private bool _captured;
+        private bool _isRestoring;
 
         private void Awake()
         {
@@ -65,6 +71,62 @@ namespace Zzapmagochi.UI
 
             if (itemButtonTemplate != null) itemButtonTemplate.gameObject.SetActive(false);
             if (slotLabelTemplate != null) slotLabelTemplate.gameObject.SetActive(false);
+
+            EnsureScrollableList();
+        }
+
+        /// <summary>
+        /// 의상 목록(itemContainer)도 가구 인벤토리처럼 마우스 휠과 드래그로 스크롤되게 만듭니다.
+        /// </summary>
+        private void EnsureScrollableList()
+        {
+            if (itemContainer == null) return;
+            if (itemContainer.GetComponentInParent<ScrollRect>() != null) return;
+
+            var contentRect = itemContainer as RectTransform;
+            var parentRect = contentRect != null ? contentRect.parent as RectTransform : null;
+            if (contentRect == null || parentRect == null) return;
+
+            var viewportGo = new GameObject(
+                "ItemsScrollViewport",
+                typeof(RectTransform),
+                typeof(Image),
+                typeof(RectMask2D),
+                typeof(ScrollRect));
+
+            var viewportRect = viewportGo.GetComponent<RectTransform>();
+            viewportRect.SetParent(parentRect, false);
+            viewportRect.anchorMin = contentRect.anchorMin;
+            viewportRect.anchorMax = contentRect.anchorMax;
+            viewportRect.anchoredPosition = contentRect.anchoredPosition;
+            viewportRect.sizeDelta = contentRect.sizeDelta;
+            viewportRect.pivot = contentRect.pivot;
+            viewportRect.SetSiblingIndex(contentRect.GetSiblingIndex());
+
+            var bgImage = viewportGo.GetComponent<Image>();
+            bgImage.color = new Color(0f, 0f, 0f, 0.005f);
+            bgImage.raycastTarget = true;
+
+            contentRect.SetParent(viewportRect, false);
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = Vector2.zero;
+
+            var fitter = contentRect.GetComponent<ContentSizeFitter>();
+            if (fitter == null)
+                fitter = contentRect.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scroll = viewportGo.GetComponent<ScrollRect>();
+            scroll.viewport = viewportRect;
+            scroll.content = contentRect;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 35f;
         }
 
         private void OnEnable()
@@ -81,12 +143,12 @@ namespace Zzapmagochi.UI
             customizer.PresetChanged -= OnPresetChanged;
         }
 
-        private bool _captured;
-
         private void Start()
         {
             BuildItemList();
             SetOpen(false);
+
+            _ = LoadCharacterFromServerAsync();
         }
 
         public void Toggle() => SetOpen(!_open);
@@ -95,10 +157,17 @@ namespace Zzapmagochi.UI
 
         private void SetOpen(bool open)
         {
+            var wasOpen = _open;
             _open = open;
 
             if (customRoot != null) customRoot.SetActive(open);
             if (modeButtonLabel != null) modeButtonLabel.text = open ? ExitLabel : EnterLabel;
+
+            // 커스텀 창을 닫는 시점에 가구 배치 모드 종료와 동일하게 서버에 자동 저장
+            if (wasOpen && !open)
+            {
+                _ = SaveCharacterToServerAsync();
+            }
 
             if (!open) return;
 
@@ -230,6 +299,7 @@ namespace Zzapmagochi.UI
             if (customizer.CurrentPreset == preset) return;
 
             customizer.ApplyPreset(preset);
+            _ = SaveCharacterToServerAsync();
         }
 
         private void CreateItemButton(CharacterItemDefinition item)
@@ -261,6 +331,104 @@ namespace Zzapmagochi.UI
         {
             // 같은 아이템을 다시 누르면 벗는다. 다른 아이템이면 같은 슬롯이 교체된다.
             if (customizer != null) customizer.Toggle(item);
+            _ = SaveCharacterToServerAsync();
+        }
+
+        private async Task LoadCharacterFromServerAsync()
+        {
+            if (!Session.IsAuthenticated || customizer == null) return;
+
+            // CharacterParts.Start()에서 자식 SpriteRenderer들이 생성될 때까지 1프레임 대기
+            await Task.Yield();
+
+            try
+            {
+                var me = await Api.Current.GetMe();
+                if (me == null || me.character == null) return;
+
+                _isRestoring = true;
+
+                // 1. 캐릭터 프리셋(몸체/헤어/눈/입 등 고정 파츠) 복원
+                var preset = ownedCharacters.Find(x => x != null && x.id == me.character.presetId);
+                if (preset == null && ownedCharacters.Count > 0)
+                    preset = ownedCharacters[0];
+
+                if (preset != null)
+                    customizer.ApplyPreset(preset);
+
+                // 2. 슬롯별 장착 의상 복원 (비어 있으면 탈의 상태 적용)
+                if (me.character.parts != null)
+                {
+                    ApplySlotFromId(CharacterSlot.Outer, me.character.parts.outer);
+                    ApplySlotFromId(CharacterSlot.Accessories, me.character.parts.accessories);
+                    ApplySlotFromId(CharacterSlot.ClothTop, me.character.parts.clothTop);
+                    ApplySlotFromId(CharacterSlot.ClothBottom, me.character.parts.clothBottom);
+                    ApplySlotFromId(CharacterSlot.Shoe, me.character.parts.shoe);
+                }
+
+                _captured = true;
+                RefreshSelection();
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[CharacterSync] Load failed: {e.Message}");
+            }
+            finally
+            {
+                _isRestoring = false;
+            }
+        }
+
+        private void ApplySlotFromId(CharacterSlot slot, string itemId)
+        {
+            if (string.IsNullOrEmpty(itemId))
+            {
+                customizer.Unequip(slot);
+                return;
+            }
+
+            var item = ownedItems.Find(x => x != null && x.slot == slot && x.id == itemId);
+            if (item != null)
+                customizer.Equip(item);
+            else
+                customizer.Unequip(slot);
+        }
+
+        private async Task SaveCharacterToServerAsync()
+        {
+            if (!Session.IsAuthenticated || _isRestoring || customizer == null) return;
+
+            var presetId = customizer.CurrentPreset != null
+                ? customizer.CurrentPreset.id
+                : (ownedCharacters.Count > 0 && ownedCharacters[0] != null ? ownedCharacters[0].id : "chara_0");
+
+            var req = new CharacterUpdateRequest
+            {
+                presetId = presetId,
+                parts = new CharacterPartsDto
+                {
+                    outer = GetEquippedItemId(CharacterSlot.Outer),
+                    accessories = GetEquippedItemId(CharacterSlot.Accessories),
+                    clothTop = GetEquippedItemId(CharacterSlot.ClothTop),
+                    clothBottom = GetEquippedItemId(CharacterSlot.ClothBottom),
+                    shoe = GetEquippedItemId(CharacterSlot.Shoe)
+                }
+            };
+
+            try
+            {
+                await Api.Current.UpdateCharacter(req);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[CharacterSync] Save failed: {e.Message}");
+            }
+        }
+
+        private string GetEquippedItemId(CharacterSlot slot)
+        {
+            var item = customizer != null ? customizer.GetEquipped(slot) : null;
+            return item != null ? item.id : null;
         }
 
         private void OnEquipChanged(CharacterSlot slot, CharacterItemDefinition item)
