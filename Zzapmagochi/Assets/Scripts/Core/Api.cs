@@ -11,7 +11,7 @@ namespace Zzapmagochi.Core
 
         public static IApiClient Current
         {
-            get => _current ??= new MockApiClient();
+            get => _current ??= new HttpApiClient("http://127.0.0.1:8000/v1");
             set => _current = value;
         }
 

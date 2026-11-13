@@ -25,13 +25,13 @@ def _is_valid_student_id(student_id: str) -> bool:
     return bool(_STUDENT_ID_PATTERN.fullmatch(student_id))
 
 
-def _response(student_id: str, session_id: str, refresh_token: str):
+def _response(student_id: str, session_id: str, refresh_token: str, is_new_user: bool = False):
     user = repository.get_user(student_id)
     return {
         "accessToken": make_access_token(student_id, session_id),
         "refreshToken": refresh_token,
         "expiresIn": ACCESS_EXPIRES_SECONDS,
-        "isNewUser": not bool(user["has_character"]),
+        "isNewUser": is_new_user, 
         "role": user["role"],
     }
 
@@ -67,7 +67,7 @@ def signup(student_id: str, password: str, client_ip: str):
     ):
         raise AuthError(409, "STUDENT_ID_TAKEN", "이미 가입된 학번입니다.")
     repository.update_last_login(student_id)
-    return _response(student_id, session_id, refresh_token)
+    return _response(student_id, session_id, refresh_token, is_new_user=True)
 
 
 def login(student_id: str, password: str, client_ip: str):
