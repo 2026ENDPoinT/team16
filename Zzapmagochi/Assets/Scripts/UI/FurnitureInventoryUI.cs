@@ -1,7 +1,11 @@
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Zzapmagochi.Core;
+using Zzapmagochi.Net;
 using Zzapmagochi.Room;
 
 namespace Zzapmagochi.UI
@@ -72,6 +76,8 @@ namespace Zzapmagochi.UI
             new Dictionary<RoomSurfaceDefinition, Image>();
 
         private bool _captured;
+        private bool _isRestoring;
+        private bool _wasPlacing;
 
         private void Awake()
         {
@@ -112,6 +118,8 @@ namespace Zzapmagochi.UI
             OnModeChanged(placement != null
                 ? placement.CurrentMode
                 : FurniturePlacementController.Mode.Off);
+
+            _ = LoadRoomFromServerAsync();
         }
 
         private void OnModeButtonClicked()
@@ -128,7 +136,11 @@ namespace Zzapmagochi.UI
         private void OnModeChanged(FurniturePlacementController.Mode mode)
         {
             var placing = mode != FurniturePlacementController.Mode.Off;
-
+            if (_wasPlacing && !placing)
+            {
+                _ = SaveRoomToServerAsync();
+            }
+            _wasPlacing = placing;
             if (inventoryRoot != null)
                 inventoryRoot.SetActive(mode == FurniturePlacementController.Mode.Browsing);
 
@@ -278,8 +290,114 @@ namespace Zzapmagochi.UI
             if (surfaces.IsSelected(definition)) return;
 
             surfaces.Apply(definition);
+            _ = SaveRoomToServerAsync();
         }
 
+        private async Task LoadRoomFromServerAsync()
+            {
+                if (!Session.IsAuthenticated) return;
+                await Task.Yield();
+
+                try
+                {
+                    var me = await Api.Current.GetMe();
+                    if (me == null || me.room == null) return;
+
+                    _isRestoring = true;
+
+                    if (surfaces != null)
+                    {
+                        var w = ownedWallpapers.Find(
+                            x => x != null && x.id == me.room.wallpaperId);
+                        if (w != null) surfaces.Apply(w);
+
+                        var f = ownedFloors.Find(
+                            x => x != null && x.id == me.room.floorId);
+                        if (f != null) surfaces.Apply(f);
+
+                        _captured = true;
+                        RefreshSurfaceSelection();
+                    }
+
+                    if (placement != null && me.room.placements != null)
+                    {
+                        var old = FindObjectsByType<PlacedFurniture>(
+                            FindObjectsSortMode.None);
+                        foreach (var item in old)
+                        {
+                            if (item != null)
+                                placement.RemoveFurniture(item);
+                        }
+
+                        foreach (var p in me.room.placements)
+                        {
+                            if (p == null) continue;
+                            var def = ownedFurniture.Find(
+                                x => x != null && x.id == p.furnitureId);
+                            if (def == null) continue;
+
+                            var cell = new Vector3Int(
+                                p.gridX, p.gridY, p.gridZ);
+                            int rot = ((p.rotation / 90) % 4 + 4) % 4;
+                            placement.PlaceAt(def, cell, rot);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[RoomSync] Load failed: {e.Message}");
+                }
+                finally
+                {
+                    _isRestoring = false;
+                }
+            }
+
+            private async Task SaveRoomToServerAsync()
+            {
+                if (!Session.IsAuthenticated || _isRestoring) return;
+
+                var req = new RoomUpdateRequest
+                {
+                    visibility = "friends",
+                    wallpaperId = surfaces != null &&
+                        surfaces.CurrentWallpaper != null
+                        ? surfaces.CurrentWallpaper.id
+                        : "wall_0",
+                    floorId = surfaces != null &&
+                        surfaces.CurrentFloor != null
+                        ? surfaces.CurrentFloor.id
+                        : "floor_0",
+                    placements = new List<RoomPlacementDto>()
+                };
+
+                var list = FindObjectsByType<PlacedFurniture>(
+                    FindObjectsSortMode.None);
+                foreach (var item in list)
+                {
+                    if (item == null || item.Definition == null) continue;
+                    var p = item.ToPlacement();
+                    if (string.IsNullOrEmpty(p.furnitureId)) continue;
+
+                    req.placements.Add(new RoomPlacementDto
+                    {
+                        furnitureId = p.furnitureId,
+                        gridX = p.gridX,
+                        gridY = p.gridY,
+                        gridZ = p.gridZ,
+                        rotation = p.rotation
+                    });
+                }
+
+                try
+                {
+                    await Api.Current.UpdateRoom(req);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[RoomSync] Save failed: {e.Message}");
+                }
+            }
         private void OnSurfaceChanged(RoomSurfaceKind kind, RoomSurfaceDefinition definition)
         {
             RefreshSurfaceSelection();

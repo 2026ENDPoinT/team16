@@ -1,10 +1,8 @@
 using System;
+using System.Collections.Generic;
 
 namespace Zzapmagochi.Net
 {
-    // API문서.md 2장 — 인증
-    // 필드 이름은 API 명세와 1:1로 맞춘다. 바꿀 때는 문서를 먼저 고친다.
-
     [Serializable]
     public class LoginRequest
     {
@@ -36,13 +34,92 @@ namespace Zzapmagochi.Net
         public bool isAvailable;
     }
 
-    /// <summary>API문서.md 1.4 — 에러 응답. 분기는 Code로 한다. Message는 사용자에게 그대로 보여주는 문구.</summary>
+    [Serializable]
+    public class CharacterPartsDto
+    {
+        public string outer;
+        public string accessories;
+        public string clothTop;
+        public string clothBottom;
+        public string shoe;
+    }
+
+    [Serializable]
+    public class CharacterDataDto
+    {
+        public string nickname;
+        public string persona;
+        public string catchphrase;
+        public string presetId;
+        public CharacterPartsDto parts;
+    }
+
+    [Serializable]
+    public class CharacterUpdateRequest
+    {
+        public string presetId;
+        public CharacterPartsDto parts;
+    }
+
+    [Serializable]
+    public class RoomPlacementDto
+    {
+        public string furnitureId;
+        public int gridX;
+        public int gridY;
+        public int gridZ;
+        public int rotation;
+    }
+
+    [Serializable]
+    public class RoomLayoutDto
+    {
+        public string ownerStudentId;
+        public string visibility;
+        public string wallpaperId;
+        public string floorId;
+        public List<RoomPlacementDto> placements =
+            new List<RoomPlacementDto>();
+        public string updatedAt;
+    }
+
+    [Serializable]
+    public class RoomUpdateRequest
+    {
+        public string visibility = "friends";
+        public string wallpaperId;
+        public string floorId;
+        public List<RoomPlacementDto> placements =
+            new List<RoomPlacementDto>();
+    }
+
+    [Serializable]
+    public class WalletDataDto
+    {
+        public int totalEarned;
+        public int balance;
+    }
+
+    [Serializable]
+    public class MeResponse
+    {
+        public string studentId;
+        public string role;
+        public CharacterDataDto character;
+        public WalletDataDto wallet;
+        public List<string> inventory = new List<string>();
+        public RoomLayoutDto room;
+    }
+
     public class ApiException : Exception
     {
         public long StatusCode { get; }
         public string Code { get; }
 
-        public ApiException(long statusCode, string code, string message) : base(message)
+        public ApiException(
+            long statusCode,
+            string code,
+            string message) : base(message)
         {
             StatusCode = statusCode;
             Code = code;
