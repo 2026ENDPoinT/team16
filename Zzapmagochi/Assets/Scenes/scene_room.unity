@@ -2123,6 +2123,8 @@ GameObject:
   - component: {fileID: 1757613627}
   - component: {fileID: 1757613626}
   - component: {fileID: 1757613625}
+  - component: {fileID: 1757613629}
+  - component: {fileID: 1757613630}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -2248,6 +2250,47 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 30, y: -45, z: 0}
+--- !u!114 &1757613629
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1757613624}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f326133b4fd509b42860a4df677351c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Zzapmagochi.Room.Skybox3DController
+  skyboxAsset: {fileID: 2100000, guid: a380701d61adbbe43b394519333834ca, type: 2}
+  themes:
+  - themeName: "Default Purple (\uC2A4\uCF00\uCE58 \uAE30\uBCF8)"
+    centerColor: {r: 0.4509804, g: 0.38039216, b: 0.52156866, a: 1}
+    edgeColor: {r: 0.32156864, g: 0.2509804, b: 0.4, a: 1}
+    starColor: {r: 0.61960787, g: 0.5411765, b: 0.72156864, a: 0.54901963}
+    scrollSpeed: {x: 0.03, y: 0.02}
+  - themeName: Panic Room Mint-Pink
+    centerColor: {r: 0.9098039, g: 0.9607843, b: 0.972549, a: 1}
+    edgeColor: {r: 0.8039216, g: 0.89411765, b: 0.92156863, a: 1}
+    starColor: {r: 0.6666667, g: 0.8235294, b: 0.88235295, a: 0.627451}
+    scrollSpeed: {x: 0.02, y: 0.015}
+--- !u!114 &1757613630
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1757613624}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8422e99cd9cd0db47aee9a7612ea54a6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Zzapmagochi.Room.RoomCameraController
+  originPosition: {x: 1.88, y: 3.6, z: -1.88}
+  moveSpeed: 5
+  zoomStep: 0.4
+  minOrthoSize: 2
+  maxOrthoSize: 6
 --- !u!1 &1790169353
 GameObject:
   m_ObjectHideFlags: 0
