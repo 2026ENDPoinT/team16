@@ -83,6 +83,8 @@ namespace Zzapmagochi.Room
 
         private void Awake()
         {
+            ApplyStoredSurveyProfileIfAny();
+
             if (pipTriggerButton != null)
             {
                 // WebGL에서는 브라우저 보안 정책(Transient User Activation) 때문에
@@ -94,6 +96,14 @@ namespace Zzapmagochi.Room
                 entry.callback.AddListener(_ => OpenDesktopMatePiP());
                 trigger.triggers.Add(entry);
             }
+        }
+
+        private void ApplyStoredSurveyProfileIfAny()
+        {
+            if (!MateProfileStore.HasCustomProfile) return;
+
+            characterNickname = MateProfileStore.Nickname;
+            personaType = MateProfileStore.Persona;
         }
 
         // ── 향후 설정창(UI)에서 호출할 수 있는 공개 API ────────────
@@ -122,6 +132,7 @@ namespace Zzapmagochi.Room
         /// </summary>
         public void OpenDesktopMatePiP()
         {
+            ApplyStoredSurveyProfileIfAny();
             EnsureCharacterRoot();
 
             _cachedIdleTex?.DestroyIfTemp();
@@ -360,6 +371,12 @@ namespace Zzapmagochi.Room
                     if (!string.IsNullOrWhiteSpace(line))
                         list.Add(line.Trim());
                 }
+            }
+
+            if (MateProfileStore.HasCustomProfile && !string.IsNullOrWhiteSpace(MateProfileStore.Catchphrase))
+            {
+                for (int i = 0; i < list.Count; i++)
+                    list[i] = MateProfileStore.ApplyCatchphrase(list[i]);
             }
 
             return list;
