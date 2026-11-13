@@ -1,0 +1,97 @@
+TamagotchiLocalServer 프로젝트 파일 구조
+=========================================
+
+[1] 전체 폴더/파일 구조
+
+TamagotchiLocalServer/
+├── app/                          # 서버 애플리케이션 본체
+│   ├── __init__.py
+│   ├── main.py                    # FastAPI 앱 생성, 라우터 연결, 서버 초기화
+│   ├── api/                       # 외부(Unity 등)에 공개하는 API 경로
+│   │   ├── __init__.py
+│   │   └── v1/
+│   │       ├── __init__.py
+│   │       ├── router.py          # v1 API 라우터 통합
+│   │       ├── health.py          # 서버 상태 확인 API
+│   │       ├── rooms.py           # 방 생성·조회·삭제 및 공유 상태 수정 API
+│   │       └── events.py          # 방별 이벤트 전송·조회 API
+│   ├── core/                      # 서버 설정
+│   │   ├── __init__.py
+│   │   └── config.py              # 호스트, 포트, DB 경로 등 설정
+│   ├── db/                        # 데이터베이스 구성
+│   │   ├── __init__.py
+│   │   ├── base.py                # SQLAlchemy 모델 공통 기반
+│   │   ├── models.py              # 데이터베이스 테이블 모델
+│   │   └── session.py             # DB 연결/세션 관리
+│   ├── schemas/                   # 요청·응답 JSON 형식(Pydantic)
+│   │   ├── __init__.py
+│   │   ├── rooms.py               # 방 및 상태 데이터 스키마
+│   │   └── events.py              # 이벤트 데이터 스키마
+│   ├── services/                  # 서버의 핵심 처리 규칙
+│   │   ├── __init__.py
+│   │   ├── rooms.py               # 방 관리, 상태 수정, revision 검사
+│   │   └── events.py              # 이벤트 생성·조회 처리
+│   └── repositories/              # 데이터베이스 접근 코드
+│       ├── __init__.py
+│       ├── rooms.py               # 방/공유 상태 DB 읽기·쓰기
+│       └── events.py              # 이벤트 DB 읽기·쓰기
+├── data/                         # 로컬 데이터 저장 폴더
+│   ├── README.txt
+│   └── tamagotchi.db              # 서버 실행 시 생성되는 SQLite DB (압축본에는 미포함)
+├── docs/                         # 설계 및 API 문서
+│   ├── API_SPEC.md                # API 주소, 요청·응답 데이터 명세
+│   └── ARCHITECTURE.md            # 데이터 처리 흐름과 수정 지점 안내
+├── examples/
+│   └── demo_client.py             # Unity 없이 클라이언트 통신을 시험하는 예제
+├── tests/
+│   ├── conftest.py                # 테스트용 DB 및 공통 설정
+│   └── test_api.py                # API 자동 테스트
+├── .env.example                  # 환경변수 설정 예시
+├── .gitignore                    # Git에서 제외할 파일 목록
+├── requirements.txt              # Python 패키지 목록
+├── run_server.py                 # 로컬 서버 실행 스크립트
+├── README.md                     # 프로젝트 소개 및 사용 설명
+└── 실행가이드.txt                 # Windows/VS Code 실행 절차
+
+※ __init__.py : 해당 디렉터리를 Python 패키지로 다루기 위한 파일.
+※ __pycache__/, .pytest_cache/, .venv/ 등의 임시·자동 생성 폴더는 표시하지 않음.
+
+[2] 서버에서 요청이 처리되는 순서
+
+Unity 클라이언트
+  ↓ HTTP 요청 + JSON
+Uvicorn (127.0.0.1:8000)
+  ↓
+app/main.py
+  ↓
+app/api/v1/ (요청 URL과 HTTP 메서드 처리)
+  ↓
+app/schemas/ (JSON 필드 및 자료형 검증)
+  ↓
+app/services/ (업무 로직 실행)
+  ↓
+app/repositories/ (DB 조회·저장)
+  ↓
+app/db/ → SQLite (data/tamagotchi.db)
+  ↓
+처리 결과를 JSON으로 Unity에 응답
+
+[3] 향후 Unity 구현 시 수정할 위치
+
+- Unity에서 주고받는 JSON 구조 변경  → app/schemas/
+- 새로운 API 주소 및 기능 추가       → app/api/v1/
+- 다마고치 게임 규칙 추가           → app/services/
+- 새로운 DB 저장 항목/테이블 추가   → app/db/models.py 및 app/repositories/
+- 서버 IP/포트/DB 설정 변경        → app/core/config.py 및 .env 설정
+- 기능 검증 테스트 추가            → tests/
+
+[4] 서버 기본 정보
+
+- 사용 언어: Python
+- API 프레임워크: FastAPI
+- ASGI 서버: Uvicorn
+- 저장소: SQLite + SQLAlchemy
+- 기본 접속 주소: http://127.0.0.1:8000
+- 자동 API 문서: http://127.0.0.1:8000/docs
+
+실행 방법과 API 세부 규격은 각각 실행가이드.txt 및 docs/API_SPEC.md 참고.
