@@ -552,6 +552,11 @@ namespace Zzapmagochi.Room
             if (placed == null) placed = go.AddComponent<PlacedFurniture>();
             placed.Initialize(definition, cell, rotationStep);
 
+            // 가구도 스프라이트라 깊이 버퍼로 가려지지 않는다.
+            // 캐릭터와 같은 기준으로 sortingOrder 를 넣어야 앞뒤가 맞는다.
+            IsoSorting.ApplyBaseOrder(go,
+                IsoSorting.GetBaseOrder(targetCamera, go.transform.position, grid));
+
             if (!grid.Occupy(placed))
             {
                 // 검사를 통과했는데 등록이 실패하면 상태가 어긋난 것이다. 흔적을 남기고 되돌린다.
