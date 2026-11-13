@@ -20,7 +20,8 @@ namespace Zzapmagochi.EditorTools
     /// </summary>
     public static class CharacterCustomSceneBuilder
     {
-        private const string ScenePath = "Assets/Scenes/dev_CharacterCustom.unity";
+        // 꾸미기 시스템이 dev 씬에서 scene_room 으로 옮겨졌다.
+        private const string ScenePath = "Assets/Scenes/scene_room.unity";
         private const string SpriteDir = "Assets/Sprites";
         private const string DataDir = "Assets/Data/Character";
         private const string RtDir = "Assets/Art/RenderTextures";
@@ -53,6 +54,7 @@ namespace Zzapmagochi.EditorTools
             EnsureFolders();
 
             var items = CreateItems();
+            var presetPaths = CreateSamplePresets(items);
             var renderTexture = CreateRenderTexture();
 
             var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
@@ -66,7 +68,8 @@ namespace Zzapmagochi.EditorTools
 
             var preview = BuildPreviewStage(sceneCharacter, renderTexture);
             var customizer = EnsureCustomizer(sceneCharacter, preview);
-            BuildUi(customizer, items, renderTexture);
+            LinkFramer(customizer);
+            BuildUi(customizer, items, presetPaths, renderTexture);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -74,7 +77,7 @@ namespace Zzapmagochi.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"[CharacterCustom] 구성 완료 (의상 {items.Count}종)");
+            Debug.Log($"[CharacterCustom] 구성 완료 (캐릭터 {presetPaths.Count}종, 의상 {items.Count}종)");
         }
 
         private static void EnsureFolders()
@@ -144,6 +147,93 @@ namespace Zzapmagochi.EditorTools
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 시작용 샘플 프리셋 두 개. Assets/Sprites 에 _0 / _1 두 벌의 파츠가 있어 그대로 쓴다.
+        /// 이미 있으면 덮어쓰지 않는다 — 직접 손본 프리셋을 날리지 않기 위해서다.
+        /// 실제 캐릭터는 이 에셋을 복제하거나
+        /// 메뉴 Zzapmagochi → Character → Create Preset From Selected Character 로 만든다.
+        /// </summary>
+        /// <summary>
+        /// 에셋 경로만 돌려준다. 씬을 열기 전에 만든 ScriptableObject 인스턴스를 그대로 들고 있으면
+        /// 씬 필드에 넣을 때 null 로 저장되는 경우가 있어, 씬을 연 뒤 경로로 다시 불러 쓴다.
+        /// </summary>
+        private static List<string> CreateSamplePresets(List<CharacterItemDefinition> items)
+        {
+            CharacterPresetTools.EnsureFolder();
+
+            var paths = new List<string>
+            {
+                DefinePreset("chara_0", "캐릭터 A", "0", items),
+                DefinePreset("chara_1", "캐릭터 B", "1", items)
+            };
+
+            paths.RemoveAll(string.IsNullOrEmpty);
+            return paths;
+        }
+
+        private static string DefinePreset(string id, string displayName,
+            string variant, List<CharacterItemDefinition> items)
+        {
+            var path = $"{CharacterPresetTools.Dir}/{id}.asset";
+
+            var preset = AssetDatabase.LoadAssetAtPath<CharacterPresetDefinition>(path);
+            var isNew = preset == null;
+            if (isNew) preset = ScriptableObject.CreateInstance<CharacterPresetDefinition>();
+
+            preset.id = id;
+            preset.displayName = displayName;
+
+            preset.body = LoadSprite($"cha_body_{variant}");
+            preset.head = LoadSprite($"cha_head_{variant}");
+            preset.arm = LoadSprite($"cha_arm_{variant}");
+            preset.eye = LoadSprite($"cha_eye_{variant}");
+            preset.mouth = LoadSprite($"cha_mouth_{variant}");
+            preset.legIdle = LoadSprite($"cha_ileg_{variant}");
+            preset.legWalk = LoadSprite($"cha_wleg_{variant}");
+
+            // 헤어는 한 벌뿐이라 두 프리셋이 같은 것을 쓴다.
+            preset.hairFront = LoadSprite("cha_fhair_0");
+            preset.hairBack = LoadSprite("cha_bhair_0");
+
+            // 기본 의상: 캐릭터 A 는 외투 A, 캐릭터 B 는 외투 B 를 입고 시작하게 해
+            // 캐릭터를 바꾸면 프리셋이 불려 오는 것이 바로 보이게 한다.
+            preset.outer = FindItem(items, variant == "0" ? "cloth_outer_0" : "cloth_outer_1");
+            preset.accessories = FindItem(items, "cloth_acc_0");
+            preset.clothTop = FindItem(items, "cloth_top_0");
+            preset.clothBottom = FindItem(items, "cloth_bottom_0");
+            preset.shoe = FindItem(items, "cloth_shoe_0");
+
+            if (isNew) AssetDatabase.CreateAsset(preset, path);
+            EditorUtility.SetDirty(preset);
+            AssetDatabase.SaveAssets();
+
+            return path;
+        }
+
+        private static CharacterItemDefinition FindItem(List<CharacterItemDefinition> items, string id)
+        {
+            foreach (var item in items)
+            {
+                if (item != null && item.id == id) return item;
+            }
+
+            return null;
+        }
+
+        /// <summary>미리보기 카메라가 캐릭터 변경에 반응하도록 연결한다.</summary>
+        private static void LinkFramer(CharacterCustomizer customizer)
+        {
+            var stage = GameObject.Find(StageName);
+            if (stage == null) return;
+
+            var framer = stage.GetComponentInChildren<CharacterPreviewFramer>(true);
+            if (framer == null) return;
+
+            var so = new SerializedObject(framer);
+            so.FindProperty("customizer").objectReferenceValue = customizer;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static RenderTexture CreateRenderTexture()
@@ -245,7 +335,8 @@ namespace Zzapmagochi.EditorTools
         // ─────────────────────────────────────────────────────────
 
         private static void BuildUi(CharacterCustomizer customizer,
-            List<CharacterItemDefinition> items, RenderTexture rt)
+            List<CharacterItemDefinition> items, List<string> presetPaths,
+            RenderTexture rt)
         {
             var canvas = FindCanvas();
             if (canvas == null)
@@ -397,6 +488,18 @@ namespace Zzapmagochi.EditorTools
             so.FindProperty("itemButtonTemplate").objectReferenceValue = template;
             so.FindProperty("slotLabelTemplate").objectReferenceValue = slotLabel;
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
+
+            // 씬이 열린 뒤에 경로로 다시 불러온다.
+            var characterList = so.FindProperty("ownedCharacters");
+            characterList.arraySize = presetPaths.Count;
+            for (var i = 0; i < presetPaths.Count; i++)
+            {
+                var preset = AssetDatabase.LoadAssetAtPath<CharacterPresetDefinition>(presetPaths[i]);
+                if (preset == null)
+                    Debug.LogError($"[CharacterCustom] 프리셋을 불러오지 못했습니다: {presetPaths[i]}");
+
+                characterList.GetArrayElementAtIndex(i).objectReferenceValue = preset;
+            }
 
             var list = so.FindProperty("ownedItems");
             list.arraySize = items.Count;

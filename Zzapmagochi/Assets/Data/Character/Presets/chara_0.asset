@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 081ce03af1bcfc24e84e3586c24a4bec, type: 3}
+  m_Name: chara_0
+  m_EditorClassIdentifier: Assembly-CSharp::Zzapmagochi.Character.CharacterPresetDefinition
+  id: chara_0
+  displayName: "\uCE90\uB9AD\uD130 A"
+  portrait: {fileID: 0}
+  body: {fileID: 21300000, guid: 2f090cfb0156f12498d36e5724fc88cd, type: 3}
+  head: {fileID: 21300000, guid: a967625a57fee3f4f83ef4b48d0ee7d5, type: 3}
+  arm: {fileID: 21300000, guid: aa891cddf986e8f48a184fc92b6a966f, type: 3}
+  eye: {fileID: 21300000, guid: a322e6e2b192a0b42bfcecd013873048, type: 3}
+  mouth: {fileID: 21300000, guid: 62a16a9759e365a43b9083cee9839714, type: 3}
+  hairFront: {fileID: 21300000, guid: 900200e9551894a4b84f825934a1f3bb, type: 3}
+  hairBack: {fileID: 21300000, guid: e8195aa8c83d6824a87e596130013b27, type: 3}
+  legIdle: {fileID: 21300000, guid: 7260db626c7f6cb49bde496a2cd463ea, type: 3}
+  legWalk: {fileID: 21300000, guid: 2a523bdcb74337b4eb7dae6f9c52c29f, type: 3}
+  outer: {fileID: 11400000, guid: 89f15ecdb56703d46ac18a2cdd8ca357, type: 2}
+  accessories: {fileID: 11400000, guid: cdf947c9c20b3b04ab25b9d12de45342, type: 2}
+  clothTop: {fileID: 11400000, guid: 3830749d87ea8c746a1711024fd84c1a, type: 2}
+  clothBottom: {fileID: 11400000, guid: d8b30b38ca898644eb9b39bb5a6910ce, type: 2}
+  shoe: {fileID: 11400000, guid: f6fb2c17ad9acdb4c93e0bb61e38147b, type: 2}

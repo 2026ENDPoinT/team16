@@ -14,6 +14,9 @@ namespace Zzapmagochi.Character
     {
         [SerializeField] private CharacterParts target;
 
+        [Tooltip("연결해 두면 캐릭터가 바뀔 때 자동으로 다시 맞춘다.")]
+        [SerializeField] private CharacterCustomizer customizer;
+
         [Tooltip("캐릭터 주위 여백 배수. 1이면 딱 맞게, 1.2면 20% 여유")]
         [SerializeField] private float padding = 1.2f;
 
@@ -26,6 +29,22 @@ namespace Zzapmagochi.Character
         private void Awake()
         {
             _camera = GetComponent<Camera>();
+        }
+
+        private void OnEnable()
+        {
+            if (customizer != null) customizer.PresetChanged += OnPresetChanged;
+        }
+
+        private void OnDisable()
+        {
+            if (customizer != null) customizer.PresetChanged -= OnPresetChanged;
+        }
+
+        private void OnPresetChanged(CharacterPresetDefinition preset)
+        {
+            // 캐릭터가 바뀌면 덩치도 달라질 수 있으므로 다음 프레임에 다시 맞춘다.
+            Invalidate();
         }
 
         private void LateUpdate()

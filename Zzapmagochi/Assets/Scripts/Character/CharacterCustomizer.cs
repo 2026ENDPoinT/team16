@@ -20,7 +20,13 @@ namespace Zzapmagochi.Character
         /// <summary>장착 상태가 바뀔 때 알린다. UI 가 선택 표시를 갱신하는 데 쓴다.</summary>
         public event Action<CharacterSlot, CharacterItemDefinition> EquipChanged;
 
+        /// <summary>선택된 캐릭터가 바뀔 때 알린다.</summary>
+        public event Action<CharacterPresetDefinition> PresetChanged;
+
         public IReadOnlyDictionary<CharacterSlot, CharacterItemDefinition> Equipped => _equipped;
+
+        /// <summary>현재 선택된 캐릭터. 항상 하나가 선택되어 있어야 한다.</summary>
+        public CharacterPresetDefinition CurrentPreset { get; private set; }
 
         public void AddTarget(CharacterParts parts)
         {
@@ -65,6 +71,83 @@ namespace Zzapmagochi.Character
             _equipped.Remove(slot);
             ApplySlot(slot);
             EquipChanged?.Invoke(slot, null);
+        }
+
+        // ─────────────────────────────────────────────────────────
+        // 캐릭터(프리셋) 전환
+        // ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 캐릭터를 바꾼다. 고정 파츠를 프리셋 것으로 갈고,
+        /// 의상은 그 캐릭터의 기본 프리셋으로 되돌린다.
+        /// </summary>
+        public void ApplyPreset(CharacterPresetDefinition preset)
+        {
+            if (preset == null) return;
+
+            CurrentPreset = preset;
+
+            // 1. 고정 파츠 교체
+            foreach (var target in targets)
+            {
+                if (target == null) continue;
+
+                foreach (var pair in preset.EnumerateFixedParts())
+                    target.SetSprite(pair.Key, pair.Value);
+            }
+
+            // 2. 의상을 프리셋 기본값으로 재설정
+            _equipped.Clear();
+            foreach (var slot in CharacterSlots.All)
+            {
+                var item = preset.GetDefaultItem(slot);
+                if (item != null) _equipped[slot] = item;
+            }
+
+            foreach (var slot in CharacterSlots.All)
+                ApplySlot(slot);
+
+            PresetChanged?.Invoke(preset);
+        }
+
+        /// <summary>
+        /// 적용하지 않고 선택 상태만 맞춘다.
+        /// 씬에 이미 그 캐릭터가 서 있을 때, 다시 덮어써서 깜빡이지 않도록 쓴다.
+        /// </summary>
+        public void SetPresetWithoutApplying(CharacterPresetDefinition preset)
+        {
+            CurrentPreset = preset;
+            PresetChanged?.Invoke(preset);
+        }
+
+        /// <summary>현재 캐릭터의 고정 파츠와 일치하는 프리셋을 찾는다. 없으면 null.</summary>
+        public CharacterPresetDefinition FindMatchingPreset(IEnumerable<CharacterPresetDefinition> presets)
+        {
+            if (presets == null || targets.Count == 0 || targets[0] == null) return null;
+
+            var source = targets[0];
+
+            foreach (var preset in presets)
+            {
+                if (preset == null) continue;
+
+                var matches = true;
+                foreach (var pair in preset.EnumerateFixedParts())
+                {
+                    // 프리셋이 비워 둔 파츠는 비교하지 않는다.
+                    if (pair.Value == null) continue;
+
+                    if (source.GetSprite(pair.Key) != pair.Value)
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (matches) return preset;
+            }
+
+            return null;
         }
 
         /// <summary>현재 캐릭터에 들어 있는 스프라이트를 그 슬롯의 기본값으로 읽어 온다.</summary>

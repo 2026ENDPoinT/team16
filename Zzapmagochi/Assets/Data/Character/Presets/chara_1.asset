@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 081ce03af1bcfc24e84e3586c24a4bec, type: 3}
+  m_Name: chara_1
+  m_EditorClassIdentifier: Assembly-CSharp::Zzapmagochi.Character.CharacterPresetDefinition
+  id: chara_1
+  displayName: "\uCE90\uB9AD\uD130 B"
+  portrait: {fileID: 0}
+  body: {fileID: 21300000, guid: d531cdfd8afe2904ab0049c08d6b7899, type: 3}
+  head: {fileID: 21300000, guid: 32331b45e02f1de4987a90c77a916f9b, type: 3}
+  arm: {fileID: 21300000, guid: d347d969dc460414aa5b02de1ca594b9, type: 3}
+  eye: {fileID: 21300000, guid: d56e40dcde9c4194588a794695397a1d, type: 3}
+  mouth: {fileID: 21300000, guid: 9b73572a90be41a42bcf78ff46aad630, type: 3}
+  hairFront: {fileID: 0}
+  hairBack: {fileID: 0}
+  legIdle: {fileID: 21300000, guid: 51b40777d75608d4da82e9f9f873c1ee, type: 3}
+  legWalk: {fileID: 21300000, guid: d9b7a889005cd6547bd88198b82722de, type: 3}
+  outer: {fileID: 11400000, guid: b5503e4e3c6fadc4f839a8264dc2d51f, type: 2}
+  accessories: {fileID: 0}
+  clothTop: {fileID: 0}
+  clothBottom: {fileID: 0}
+  shoe: {fileID: 0}
