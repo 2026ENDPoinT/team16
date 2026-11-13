@@ -44,6 +44,13 @@ public class CharacterParts : MonoBehaviour
     [Tooltip("각 파츠의 order 에 더해지는 값. 캐릭터 전체를 다른 오브젝트 앞뒤로 밀 때 쓴다.")]
     [SerializeField] private int sortingOrderOffset = 0;
 
+    [Header("동작")]
+    [Tooltip("켜면 걷기/대기 포즈를 자동으로 번갈아 보여준다. 꾸미기 미리보기에서는 끈다.")]
+    [SerializeField] private bool autoWalkLoop = true;
+
+    [Tooltip("걷기/대기 전환 간격(초)")]
+    [SerializeField] private float walkLoopInterval = 0.75f;
+
     /// <summary>생성된 파츠. 키는 CharacterBody 의 필드 이름(body, head, hair_front ...).</summary>
     private readonly Dictionary<string, SpriteRenderer> _renderers =
         new Dictionary<string, SpriteRenderer>();
@@ -52,12 +59,20 @@ public class CharacterParts : MonoBehaviour
     private const string WalkSuffix = "_walk";
     private const string IdleSuffix = "_idle";
 
+    private bool _walking;
+    private Coroutine _walkRoutine;
+
     public IReadOnlyDictionary<string, SpriteRenderer> Renderers => _renderers;
+    public bool IsWalking => _walking;
 
     private void Start()
     {
         BuildParts();
-        StartCoroutine(Walk());
+
+        if (autoWalkLoop)
+            _walkRoutine = StartCoroutine(Walk());
+        else
+            SetWalking(false);
     }
 
     /// <summary>
@@ -78,12 +93,12 @@ public class CharacterParts : MonoBehaviour
 
             var part = (CharacterPart)field.GetValue(characterBody);
 
-            // 스프라이트가 비어 있는 파츠는 건너뛴다.
-            // (액세서리를 끼지 않은 캐릭터처럼 비어 있는 것이 정상인 경우가 있다)
-            if (part.parts == null) continue;
-
+            // 스프라이트가 비어 있어도 오브젝트는 만들어 둔다.
+            // 꾸미기에서 나중에 장착할 수 있어야 하므로, 비어 있으면 렌더러만 꺼 둔다.
             CreatePart(field.Name, part);
         }
+
+        SetWalking(_walking);
     }
 
     private void CreatePart(string partName, CharacterPart part)
@@ -104,6 +119,7 @@ public class CharacterParts : MonoBehaviour
             renderer.sortingLayerName = sortingLayerName;
 
         _renderers[partName] = renderer;
+        ApplyVisibility(partName, renderer);
     }
 
     private void ClearParts()
@@ -127,22 +143,52 @@ public class CharacterParts : MonoBehaviour
     /// </summary>
     public void SetWalking(bool walking)
     {
-        foreach (var pair in _renderers)
-        {
-            if (pair.Value == null) continue;
+        _walking = walking;
 
-            if (pair.Key.EndsWith(WalkSuffix, StringComparison.Ordinal))
-                pair.Value.enabled = walking;
-            else if (pair.Key.EndsWith(IdleSuffix, StringComparison.Ordinal))
-                pair.Value.enabled = !walking;
-        }
+        foreach (var pair in _renderers)
+            ApplyVisibility(pair.Key, pair.Value);
     }
 
-    /// <summary>파츠 하나의 스프라이트를 교체한다. 꾸미기 기능에서 쓴다.</summary>
+    /// <summary>
+    /// 파츠가 보여야 하는지 한 곳에서 정한다.
+    /// 기준은 둘이다 — 스프라이트가 있는가, 그리고 지금 포즈에 맞는 파츠인가.
+    /// </summary>
+    private void ApplyVisibility(string partName, SpriteRenderer renderer)
+    {
+        if (renderer == null) return;
+
+        if (renderer.sprite == null)
+        {
+            renderer.enabled = false;
+            return;
+        }
+
+        if (partName.EndsWith(WalkSuffix, StringComparison.Ordinal))
+            renderer.enabled = _walking;
+        else if (partName.EndsWith(IdleSuffix, StringComparison.Ordinal))
+            renderer.enabled = !_walking;
+        else
+            renderer.enabled = true;
+    }
+
+    /// <summary>
+    /// 파츠 하나의 스프라이트를 교체한다. null 을 넣으면 그 파츠를 벗는다.
+    /// 꾸미기 시스템이 이 메서드로 장착/해제를 처리한다.
+    /// </summary>
     public void SetSprite(string partName, Sprite sprite)
     {
-        if (_renderers.TryGetValue(partName, out var renderer) && renderer != null)
-            renderer.sprite = sprite;
+        if (!_renderers.TryGetValue(partName, out var renderer) || renderer == null) return;
+
+        renderer.sprite = sprite;
+        ApplyVisibility(partName, renderer);
+    }
+
+    /// <summary>현재 그 파츠에 들어가 있는 스프라이트. 없으면 null.</summary>
+    public Sprite GetSprite(string partName)
+    {
+        return _renderers.TryGetValue(partName, out var renderer) && renderer != null
+            ? renderer.sprite
+            : null;
     }
 
     /// <summary>파츠 하나의 SpriteRenderer 를 돌려준다. 없으면 null.</summary>
@@ -151,15 +197,35 @@ public class CharacterParts : MonoBehaviour
         return _renderers.TryGetValue(partName, out var renderer) ? renderer : null;
     }
 
-    private void Update() {
+    /// <summary>걷기 루프를 켜고 끈다. 꾸미기 미리보기에서는 꺼서 대기 포즈로 고정한다.</summary>
+    public void SetAutoWalkLoop(bool enabled)
+    {
+        autoWalkLoop = enabled;
+
+        if (!enabled)
+        {
+            if (_walkRoutine != null)
+            {
+                StopCoroutine(_walkRoutine);
+                _walkRoutine = null;
+            }
+
+            SetWalking(false);
+            return;
+        }
+
+        if (_walkRoutine == null && isActiveAndEnabled)
+            _walkRoutine = StartCoroutine(Walk());
     }
 
-    IEnumerator Walk() {
-        while (true) {
+    private IEnumerator Walk()
+    {
+        while (true)
+        {
             SetWalking(true);
-            yield return new WaitForSeconds(0.75f);
+            yield return new WaitForSeconds(walkLoopInterval);
             SetWalking(false);
-            yield return new WaitForSeconds(0.75f);
+            yield return new WaitForSeconds(walkLoopInterval);
         }
     }
 }
