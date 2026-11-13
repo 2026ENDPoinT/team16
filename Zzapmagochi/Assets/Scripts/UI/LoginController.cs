@@ -40,6 +40,9 @@ namespace Zzapmagochi.UI
             }
 
             if (passwordInput != null)
+                passwordInput.richText = false;                                                                                                 
+                passwordInput.onSelect.AddListener(_ => Input.imeCompositionMode = IMECompositionMode.Off);                                     
+                passwordInput.onDeselect.AddListener(_ => Input.imeCompositionMode = IMECompositionMode.Auto);                                  
                 passwordInput.onSubmit.AddListener(_ => OnLoginClicked());
         }
 
