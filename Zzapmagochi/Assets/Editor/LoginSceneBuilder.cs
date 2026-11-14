@@ -140,7 +140,7 @@ namespace Zzapmagochi.EditorTools
             var panel = CreateImage("LoginPanel", canvasGo.transform, PanelColor);
             Center(panel.rectTransform, new Vector2(620, 620));
 
-            var title = CreateText("Title", panel.transform, "짭마고치", 52, TextColor, FontStyles.Bold);
+            var title = CreateText("Title", panel.transform, "놀러와요 자취의 방", 52, TextColor, FontStyles.Bold);
             Anchor(title.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -90), new Vector2(520, 70));
             title.alignment = TextAlignmentOptions.Center;
 

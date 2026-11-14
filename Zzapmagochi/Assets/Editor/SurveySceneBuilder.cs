@@ -116,7 +116,7 @@ namespace Zzapmagochi.EditorTools
             var panel = CreateImage("IntroPanel", parent, PanelColor);
             Center(panel.rectTransform, new Vector2(880, 520));
 
-            var badge = CreateText("Badge", panel.transform, "WELCOME TO ZZAPMAGOCHI", 20, PrimaryColor, FontStyles.Bold);
+            var badge = CreateText("Badge", panel.transform, "놀러와요 자취의 방", 20, PrimaryColor, FontStyles.Bold);
             Anchor(badge.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, -80), new Vector2(760, 34));
             badge.alignment = TextAlignmentOptions.Center;
 

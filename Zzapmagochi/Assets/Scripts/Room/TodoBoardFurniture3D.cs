@@ -474,8 +474,8 @@ namespace Zzapmagochi.Room
 
             EnsureGuiStyles();
 
-            float w = Mathf.Min(480f, Screen.width - 32f);
-            float h = Mathf.Min(500f, Screen.height - 40f);
+            float w = Mathf.Min(540f, Screen.width - 32f);
+            float h = Mathf.Min(520f, Screen.height - 40f);
             Rect winRect = new Rect((Screen.width - w) * 0.5f, (Screen.height - h) * 0.5f, w, h);
 
             GUI.Box(winRect, GUIContent.none, _windowStyle);
@@ -486,7 +486,7 @@ namespace Zzapmagochi.Room
             GUILayout.BeginHorizontal();
             GUILayout.Label($"📋 eClass 할 일 보드 ({_todos.Count}건)", _titleStyle);
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button("닫기 ✕", GUILayout.Width(68f), GUILayout.Height(28f)))
+            if (GUILayout.Button("닫기 ✕", GUILayout.Width(76f), GUILayout.Height(30f)))
             {
                 _isPopupOpen = false;
             }
@@ -504,22 +504,26 @@ namespace Zzapmagochi.Room
 
             GUILayout.Space(8f);
 
-            // 리프레시 버튼 & 브라우저 쿠키 자동 추출 버튼
+            // 3개 버튼: '리프레시' / '웹에서 로그인' / 'ID나 쿠키등록' (잘리지 않게 여유 폭 배정)
             GUILayout.BeginHorizontal();
             GUI.enabled = !_isSyncing;
-            string syncLabel = _isSyncing ? "⏳ 동기화 중..." : "🔄 eClass 할 일 리프레시";
-            if (GUILayout.Button(syncLabel, _btnStyle, GUILayout.Height(36f)))
+            string syncLabel = _isSyncing ? "동기화 중..." : "리프레시";
+            if (GUILayout.Button(syncLabel, _btnStyle, GUILayout.ExpandWidth(true), GUILayout.MinWidth(130f), GUILayout.Height(38f)))
             {
                 SyncTodosNow(openBrowserLogin: false, useAccountLogin: false);
             }
 
-            if (GUILayout.Button("🌐 로그인 창으로 쿠키 자동추출", _btnStyle, GUILayout.Width(195f), GUILayout.Height(36f)))
+            GUILayout.Space(6f);
+
+            if (GUILayout.Button("웹에서 로그인", _btnStyle, GUILayout.ExpandWidth(true), GUILayout.MinWidth(150f), GUILayout.Height(38f)))
             {
                 SyncTodosNow(openBrowserLogin: true, useAccountLogin: false);
             }
             GUI.enabled = true;
 
-            if (GUILayout.Button(_showCookieField ? "설정 닫기" : "ID/쿠키", GUILayout.Width(68f), GUILayout.Height(36f)))
+            GUILayout.Space(6f);
+
+            if (GUILayout.Button("ID나 쿠키등록", _btnStyle, GUILayout.ExpandWidth(true), GUILayout.MinWidth(150f), GUILayout.Height(38f)))
             {
                 _showCookieField = !_showCookieField;
             }
