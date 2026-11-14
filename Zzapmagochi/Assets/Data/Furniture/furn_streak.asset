@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: furn_streak
   m_EditorClassIdentifier: Assembly-CSharp::Zzapmagochi.Room.FurnitureDefinition
   id: furn_streak
-  displayName: "GitHub \uC2A4\uD2B8\uB9AD \uC561\uC790"
+  displayName: "GitHub \uC2A4\uD2B8\uB9AD \uC561\uC790 - github\uC640 \uC5F0\uB3D9\uD558\uC5EC \uC2A4\uD2B8\uB9AD\uC744 \uBCF4\uC5EC\uC918\uC694"
   size: {x: 1, y: 1, z: 2}
   surface: 1
   blocksPath: 0

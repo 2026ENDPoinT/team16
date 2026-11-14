@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: furn_todo
   m_EditorClassIdentifier: Assembly-CSharp::Zzapmagochi.Room.FurnitureDefinition
   id: furn_todo
-  displayName: "\uD560 \uC77C \uBCF4\uB4DC"
+  displayName: "\uD560 \uC77C \uBCF4\uB4DC - eclass\uC640 \uC5F0\uB3D9\uD558\uC5EC todo\uB97C \uBCF4\uC5EC\uC918\uC694"
   size: {x: 1, y: 1, z: 1}
   surface: 1
   blocksPath: 0

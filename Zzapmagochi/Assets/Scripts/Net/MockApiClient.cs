@@ -142,7 +142,11 @@ namespace Zzapmagochi.Net
             };
         }
 
-        public async Task<TodoListResponse> SyncTodos(string cookieHeader = null)
+        public async Task<TodoListResponse> SyncTodos(
+            string cookieHeader = null,
+            string eclassId = null,
+            string eclassPassword = null,
+            bool openBrowserLogin = false)
         {
             await Delay();
             int prev = _mockTodoRemaining;
@@ -158,7 +162,9 @@ namespace Zzapmagochi.Net
                 total = list.Count,
                 previousTotal = prev,
                 decreasedCount = Math.Max(0, prev - list.Count),
-                syncedAt = DateTime.UtcNow.ToString("o")
+                syncedAt = DateTime.UtcNow.ToString("o"),
+                source = "demo",
+                message = "목(Mock) 모드 할 일 리프레시 완료"
             };
         }
 

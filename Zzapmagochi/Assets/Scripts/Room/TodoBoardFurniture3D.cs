@@ -17,6 +17,8 @@ namespace Zzapmagochi.Room
     /// </summary>
     public class TodoBoardFurniture3D : MonoBehaviour
     {
+        public static bool IsPopupOpen => _isPopupOpen;
+
         [Header("3D 보드 렌더러")]
         [SerializeField] private MeshRenderer screenMeshRenderer;
         [SerializeField] private int screenMaterialIndex = 0;
@@ -50,6 +52,8 @@ namespace Zzapmagochi.Room
         private static string _statusBanner = string.Empty;
         private static float _statusBannerUntil;
         private static string _cookieInput = string.Empty;
+        private static string _eclassIdInput = string.Empty;
+        private static string _eclassPwInput = string.Empty;
         private static bool _showCookieField;
         private static Vector2 _scrollPos;
         private static bool _initialLoaded;
@@ -142,7 +146,7 @@ namespace Zzapmagochi.Room
 
         private bool CanInteract()
         {
-            if (_isPopupOpen) return false;
+            if (_isPopupOpen || GitHubStreakFurniture3D.IsPopupOpen) return false;
             if (_placement != null && _placement.CurrentMode != FurniturePlacementController.Mode.Off)
                 return false;
             return true;
@@ -205,16 +209,32 @@ namespace Zzapmagochi.Room
             }
         }
 
-        private async void SyncTodosNow()
+        private async void SyncTodosNow(bool openBrowserLogin = false, bool useAccountLogin = false)
         {
             if (_isSyncing || Api.Current == null) return;
             _isSyncing = true;
 
             int beforeCount = _todos != null ? _todos.Count : 0;
 
+            if (openBrowserLogin)
+            {
+                _statusBanner = "🌐 eClass 로그인 창을 열었습니다! 브라우저에서 로그인하시면 자동으로 쿠키를 추출해 연동합니다.";
+                _statusBannerUntil = Time.time + 90f;
+            }
+            else if (useAccountLogin)
+            {
+                _statusBanner = "⏳ 서버 에이전트가 eClass에 자동 로그인하여 쿠키와 할 일을 추출하고 있습니다...";
+                _statusBannerUntil = Time.time + 30f;
+            }
+
             try
             {
-                var res = await Api.Current.SyncTodos(_cookieInput);
+                var res = await Api.Current.SyncTodos(
+                    cookieHeader: _cookieInput,
+                    eclassId: useAccountLogin ? _eclassIdInput : null,
+                    eclassPassword: useAccountLogin ? _eclassPwInput : null,
+                    openBrowserLogin: openBrowserLogin);
+
                 if (res != null)
                 {
                     _todos = res.items != null ? new List<TodoItemDto>(res.items) : new List<TodoItemDto>();
@@ -229,12 +249,17 @@ namespace Zzapmagochi.Room
                     if (decreased > 0)
                     {
                         _statusBanner = $"와! 해냈어! 할 일이 {decreased}개 줄어들었어요! (남은 할 일: {_todos.Count}개)";
-                        _statusBannerUntil = Time.time + 6f;
+                        _statusBannerUntil = Time.time + 6.5f;
 
                         if (DesktopMateController.Instance != null)
                         {
                             DesktopMateController.Instance.TriggerTodoCompletedCelebration(decreased);
                         }
+                    }
+                    else if (!string.IsNullOrEmpty(res.message))
+                    {
+                        _statusBanner = res.message;
+                        _statusBannerUntil = Time.time + 5f;
                     }
                     else
                     {
@@ -246,7 +271,7 @@ namespace Zzapmagochi.Room
             catch (Exception e)
             {
                 _statusBanner = $"리프레시 중 오류가 발생했어요: {e.Message}";
-                _statusBannerUntil = Time.time + 4f;
+                _statusBannerUntil = Time.time + 4.5f;
             }
             finally
             {
@@ -479,17 +504,22 @@ namespace Zzapmagochi.Room
 
             GUILayout.Space(8f);
 
-            // 리프레시 버튼 & 쿠키 옵션
+            // 리프레시 버튼 & 브라우저 쿠키 자동 추출 버튼
             GUILayout.BeginHorizontal();
             GUI.enabled = !_isSyncing;
-            string syncLabel = _isSyncing ? "⏳ 크롤링 리프레시 중..." : "🔄 eClass 할 일 리프레시";
+            string syncLabel = _isSyncing ? "⏳ 동기화 중..." : "🔄 eClass 할 일 리프레시";
             if (GUILayout.Button(syncLabel, _btnStyle, GUILayout.Height(36f)))
             {
-                SyncTodosNow();
+                SyncTodosNow(openBrowserLogin: false, useAccountLogin: false);
+            }
+
+            if (GUILayout.Button("🌐 로그인 창으로 쿠키 자동추출", _btnStyle, GUILayout.Width(195f), GUILayout.Height(36f)))
+            {
+                SyncTodosNow(openBrowserLogin: true, useAccountLogin: false);
             }
             GUI.enabled = true;
 
-            if (GUILayout.Button(_showCookieField ? "쿠키 닫기" : "쿠키 설정", GUILayout.Width(80f), GUILayout.Height(36f)))
+            if (GUILayout.Button(_showCookieField ? "설정 닫기" : "ID/쿠키", GUILayout.Width(68f), GUILayout.Height(36f)))
             {
                 _showCookieField = !_showCookieField;
             }
@@ -497,8 +527,23 @@ namespace Zzapmagochi.Room
 
             if (_showCookieField)
             {
+                GUILayout.Space(6f);
+                GUILayout.Label("방법 1) eClass 학번/비밀번호 입력 시 서버 에이전트가 백그라운드로 쿠키를 자동 추출합니다:", _subStyle);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("학번:", _subStyle, GUILayout.Width(36f));
+                _eclassIdInput = GUILayout.TextField(_eclassIdInput ?? string.Empty, GUILayout.Width(120f));
+                GUILayout.Label("비번:", _subStyle, GUILayout.Width(36f));
+                _eclassPwInput = GUILayout.PasswordField(_eclassPwInput ?? string.Empty, '*', GUILayout.Width(120f));
+                GUI.enabled = !_isSyncing && !string.IsNullOrWhiteSpace(_eclassIdInput) && !string.IsNullOrWhiteSpace(_eclassPwInput);
+                if (GUILayout.Button("백그라운드 연동", GUILayout.Height(24f)))
+                {
+                    SyncTodosNow(openBrowserLogin: false, useAccountLogin: true);
+                }
+                GUI.enabled = true;
+                GUILayout.EndHorizontal();
+
                 GUILayout.Space(4f);
-                GUILayout.Label("서울과기대 eClass Cookie (비워두면 데모 크롤링/완료 감소 시뮬레이션 동작):", _subStyle);
+                GUILayout.Label("방법 2) 직접 Cookie 문자열 입력 (비워두면 자동추출 쿠키 또는 데모 시뮬레이션 사용):", _subStyle);
                 _cookieInput = GUILayout.TextField(_cookieInput ?? string.Empty);
             }
 

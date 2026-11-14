@@ -20,6 +20,10 @@ namespace Zzapmagochi.Net
         Task<GitHubStreakPayload> GetGitHubStreak(string studentId);
 
         Task<TodoListResponse> GetTodos();
-        Task<TodoListResponse> SyncTodos(string cookieHeader = null);
+        Task<TodoListResponse> SyncTodos(
+            string cookieHeader = null,
+            string eclassId = null,
+            string eclassPassword = null,
+            bool openBrowserLogin = false);
     }
 }

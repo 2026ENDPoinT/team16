@@ -122,12 +122,17 @@ namespace Zzapmagochi.Net
         public int previousTotal;
         public int decreasedCount;
         public string syncedAt;
+        public string source;
+        public string message;
     }
 
     [Serializable]
     public class TodoSyncRequest
     {
         public string cookieHeader;
+        public string eclassId;
+        public string eclassPassword;
+        public bool openBrowserLogin;
         public bool simulateCompleteOne = true;
     }
 
