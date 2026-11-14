@@ -149,6 +149,10 @@ namespace Zzapmagochi.Room
         private PlacedFurniture _removeHover;
         private readonly List<Renderer> _hoverRenderers = new List<Renderer>();
 
+        /// <summary>강조 전 스프라이트 색. 호버가 풀리면 그대로 되돌린다.</summary>
+        private readonly Dictionary<SpriteRenderer, Color> _hoverSpriteColors =
+            new Dictionary<SpriteRenderer, Color>();
+
         /// <summary>
         /// 제거 모드로 들어간다. 인벤토리는 ModeChanged 를 받은 UI 가 닫는다.
         /// </summary>
@@ -237,11 +241,21 @@ namespace Zzapmagochi.Room
             _removeHover = furniture;
             furniture.GetComponentsInChildren(true, _hoverRenderers);
 
-            // 머티리얼은 에셋이라 직접 건드리면 안 된다.
-            // MaterialPropertyBlock 은 렌더러 단위라 원본 머티리얼을 바꾸지 않는다.
             foreach (var renderer in _hoverRenderers)
             {
                 if (renderer == null) continue;
+
+                // 스프라이트는 머티리얼 색이 아니라 SpriteRenderer.color 로 틴트된다.
+                // _BaseColor 만 건드리면 가구가 스프라이트로 바뀐 뒤로 강조가 먹히지 않는다.
+                if (renderer is SpriteRenderer sprite)
+                {
+                    _hoverSpriteColors[sprite] = sprite.color;
+                    sprite.color = removeHighlightColor;
+                    continue;
+                }
+
+                // 메시는 머티리얼이 에셋이라 직접 건드리면 안 된다.
+                // MaterialPropertyBlock 은 렌더러 단위라 원본 머티리얼을 바꾸지 않는다.
                 renderer.GetPropertyBlock(_block);
                 _block.SetColor("_BaseColor", removeHighlightColor);
                 _block.SetColor("_Color", removeHighlightColor);
@@ -251,9 +265,15 @@ namespace Zzapmagochi.Room
 
         private void ClearRemoveHover()
         {
+            foreach (var pair in _hoverSpriteColors)
+            {
+                if (pair.Key != null) pair.Key.color = pair.Value;
+            }
+            _hoverSpriteColors.Clear();
+
             foreach (var renderer in _hoverRenderers)
             {
-                if (renderer == null) continue;
+                if (renderer == null || renderer is SpriteRenderer) continue;
                 renderer.SetPropertyBlock(null);
             }
 
