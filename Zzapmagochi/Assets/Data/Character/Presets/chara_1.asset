@@ -20,12 +20,12 @@ MonoBehaviour:
   arm: {fileID: 21300000, guid: d347d969dc460414aa5b02de1ca594b9, type: 3}
   eye: {fileID: 21300000, guid: d56e40dcde9c4194588a794695397a1d, type: 3}
   mouth: {fileID: 21300000, guid: 9b73572a90be41a42bcf78ff46aad630, type: 3}
-  hairFront: {fileID: 21300000, guid: 900200e9551894a4b84f825934a1f3bb, type: 3}
-  hairBack: {fileID: 21300000, guid: e8195aa8c83d6824a87e596130013b27, type: 3}
+  hairFront: {fileID: 0}
+  hairBack: {fileID: 0}
   legIdle: {fileID: 21300000, guid: 51b40777d75608d4da82e9f9f873c1ee, type: 3}
   legWalk: {fileID: 21300000, guid: d9b7a889005cd6547bd88198b82722de, type: 3}
-  outer: {fileID: 11400000, guid: b5503e4e3c6fadc4f839a8264dc2d51f, type: 2}
-  accessories: {fileID: 11400000, guid: cdf947c9c20b3b04ab25b9d12de45342, type: 2}
-  clothTop: {fileID: 11400000, guid: 3830749d87ea8c746a1711024fd84c1a, type: 2}
-  clothBottom: {fileID: 11400000, guid: d8b30b38ca898644eb9b39bb5a6910ce, type: 2}
-  shoe: {fileID: 11400000, guid: f6fb2c17ad9acdb4c93e0bb61e38147b, type: 2}
+  outer: {fileID: 0}
+  accessories: {fileID: 0}
+  clothTop: {fileID: 0}
+  clothBottom: {fileID: 0}
+  shoe: {fileID: 0}
