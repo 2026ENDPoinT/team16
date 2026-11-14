@@ -37,3 +37,6 @@ app.include_router(auth_router)
 from app.api.v1.admin_users import router as admin_users_router
 app.include_router(admin_users_router)
 
+# 무작위 방문 후보 조회 (GET /v1/room/random/student-id)
+from app.api.v1.random_visit import router as random_visit_router
+app.include_router(random_visit_router)

@@ -89,6 +89,37 @@ namespace Zzapmagochi.Net
             };
         }
 
+        public async Task<RandomStudentIdResponse> GetRandomStudentId()
+        {
+            await Delay();
+            if (RejectEverything)
+                throw new ApiException(404, "NO_VISITABLE_USER", "방문할 수 있는 친구가 없습니다.");
+
+            return new RandomStudentIdResponse { studentId = "20260002" };
+        }
+
+        public async Task<RoomVisitResponse> GetUserRoom(string studentId)
+        {
+            await Delay();
+            return new RoomVisitResponse
+            {
+                studentId = studentId,
+                character = new CharacterDataDto
+                {
+                    nickname = "목업 친구",
+                    presetId = "chara_1",
+                    parts = new CharacterPartsDto()
+                },
+                room = new RoomLayoutDto
+                {
+                    ownerStudentId = studentId,
+                    visibility = "public",
+                    wallpaperId = "wall_2",
+                    floorId = "floor_1"
+                }
+            };
+        }
+
         public async Task<GitHubStreakPayload> LinkGitHub(
             string githubUsername,
             string oauthToken = null)

@@ -16,6 +16,12 @@ namespace Zzapmagochi.Net
         Task<RoomLayoutDto> UpdateRoom(RoomUpdateRequest request);
         Task<CharacterDataDto> UpdateCharacter(CharacterUpdateRequest request);
 
+        /// <summary>GET /room/random/student-id — 방문할 다른 학생을 무작위로 고른다.</summary>
+        Task<RandomStudentIdResponse> GetRandomStudentId();
+
+        /// <summary>GET /room/{studentId} — 그 학생의 캐릭터와 방을 가져온다.</summary>
+        Task<RoomVisitResponse> GetUserRoom(string studentId);
+
         Task<GitHubStreakPayload> LinkGitHub(string githubUsername, string oauthToken = null);
         Task<GitHubStreakPayload> GetGitHubStreak(string studentId);
 

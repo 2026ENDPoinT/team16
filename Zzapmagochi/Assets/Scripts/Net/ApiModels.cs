@@ -94,6 +94,28 @@ namespace Zzapmagochi.Net
     }
 
     [Serializable]
+    public class RandomStudentIdResponse
+    {
+        public string studentId;
+    }
+
+    /// <summary>GET /room/{studentId} — 방문 대상의 캐릭터와 방을 한 번에 받는다.</summary>
+    [Serializable]
+    public class RoomVisitResponse
+    {
+        public string studentId;
+        public CharacterDataDto character;
+        public RoomLayoutDto room;
+    }
+
+    [Serializable]
+    public class WalletDataDto
+    {
+        public int totalEarned;
+        public int balance;
+    }
+
+    [Serializable]
     public class MeResponse
     {
         public string studentId;
