@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using Zzapmagochi.Core;
 using Zzapmagochi.Net;
 
 namespace Zzapmagochi.Room
