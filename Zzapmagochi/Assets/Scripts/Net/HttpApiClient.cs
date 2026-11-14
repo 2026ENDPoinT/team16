@@ -150,14 +150,45 @@ namespace Zzapmagochi.Net
                 "zzap-coder");
         }
 
+        public async Task<TodoListResponse> GetTodos()
+        {
+            return await SendJsonAsync<TodoListResponse>(
+                "GET",
+                $"{BaseUrl}/todos",
+                null);
+        }
+
+        public async Task<TodoListResponse> SyncTodos(
+            string cookieHeader = null,
+            string eclassId = null,
+            string eclassPassword = null,
+            bool openBrowserLogin = false)
+        {
+            var body = new TodoSyncRequest
+            {
+                cookieHeader = cookieHeader,
+                eclassId = eclassId,
+                eclassPassword = eclassPassword,
+                openBrowserLogin = openBrowserLogin,
+                simulateCompleteOne = true
+            };
+            int timeoutSec = (openBrowserLogin || !string.IsNullOrEmpty(eclassId)) ? 95 : 15;
+            return await SendJsonAsync<TodoListResponse>(
+                "POST",
+                $"{BaseUrl}/todos/sync",
+                JsonUtility.ToJson(body),
+                timeoutSec);
+        }
+
         private static async Task<T> SendJsonAsync<T>(
             string method,
             string url,
-            string jsonBody)
+            string jsonBody,
+            int timeoutSeconds = 10)
         {
             using var req = new UnityWebRequest(url, method);
             req.downloadHandler = new DownloadHandlerBuffer();
-            req.timeout = 10;
+            req.timeout = timeoutSeconds;
 
             if (!string.IsNullOrEmpty(jsonBody))
             {

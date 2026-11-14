@@ -7,6 +7,14 @@ mergeInto(LibraryManager.library, {
     return 0;
   },
 
+  ZzapDesktopMate_ShowLine: function (linePtr) {
+    if (typeof window === "undefined") return;
+    var text = UTF8ToString(linePtr);
+    if (window.__zzapPipShowLine) {
+      window.__zzapPipShowLine(text);
+    }
+  },
+
   ZzapDesktopMate_OpenPiP: function (configJsonPtr, idleDataUrlPtr, walkDataUrlPtr) {
     var configStr = UTF8ToString(configJsonPtr);
     var idleUrl = UTF8ToString(idleDataUrlPtr);
@@ -121,15 +129,9 @@ mergeInto(LibraryManager.library, {
         var bubbleHideTimeout = null;
         var lastLineIdx = -1;
 
-        function showRandomLine() {
-          if (!lines || lines.length === 0) return;
-          var idx = Math.floor(Math.random() * lines.length);
-          if (lines.length > 1 && idx === lastLineIdx) {
-            idx = (idx + 1) % lines.length;
-          }
-          lastLineIdx = idx;
-
-          bubbleEl.textContent = lines[idx];
+        function showSpecificLine(text) {
+          if (!text) return;
+          bubbleEl.textContent = text;
           bubbleEl.classList.add("visible");
 
           charImg.classList.remove("bounce");
@@ -139,7 +141,19 @@ mergeInto(LibraryManager.library, {
           if (bubbleHideTimeout) pipWin.clearTimeout(bubbleHideTimeout);
           bubbleHideTimeout = pipWin.setTimeout(function () {
             bubbleEl.classList.remove("visible");
-          }, 5000);
+          }, 5500);
+        }
+
+        window.__zzapPipShowLine = showSpecificLine;
+
+        function showRandomLine() {
+          if (!lines || lines.length === 0) return;
+          var idx = Math.floor(Math.random() * lines.length);
+          if (lines.length > 1 && idx === lastLineIdx) {
+            idx = (idx + 1) % lines.length;
+          }
+          lastLineIdx = idx;
+          showSpecificLine(lines[idx]);
         }
 
         charWrap.addEventListener("click", function () {

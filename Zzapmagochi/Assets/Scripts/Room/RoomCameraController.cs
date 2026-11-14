@@ -43,6 +43,12 @@ namespace Zzapmagochi.Room
 
         private void Update()
         {
+            if (TodoBoardFurniture3D.IsPopupOpen || GitHubStreakFurniture3D.IsPopupOpen)
+            {
+                _isDragging = false;
+                return;
+            }
+
             HandleSpacebarReset();
             HandleWasdMove();
             HandleMouseDrag();

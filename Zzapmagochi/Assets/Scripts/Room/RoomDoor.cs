@@ -78,6 +78,7 @@ namespace Zzapmagochi.Room
         private bool CanInteract()
         {
             if (exitPopup != null && exitPopup.IsOpen) return false;
+            if (TodoBoardFurniture3D.IsPopupOpen || GitHubStreakFurniture3D.IsPopupOpen) return false;
 
             if (placement != null &&
                 placement.CurrentMode != FurniturePlacementController.Mode.Off)

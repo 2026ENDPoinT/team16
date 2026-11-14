@@ -272,9 +272,14 @@ namespace Zzapmagochi.UI
 
             var label = button.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
+            {
+                label.rectTransform.offsetMin = new Vector2(20f, 0f);
+                label.rectTransform.offsetMax = new Vector2(-16f, 0f);
+                label.fontSize = 18f;
                 label.text = $"{definition.DisplayNameOrId}\n" +
-                             $"<size=70%>{definition.size.x}×{definition.size.y}×{definition.size.z} · " +
+                             $"<size=75%>{definition.size.x}×{definition.size.y}×{definition.size.z} · " +
                              $"{(definition.surface == PlacementSurface.Floor ? "바닥" : "벽")}</size>";
+            }
 
             SetIcon(button, null);
 

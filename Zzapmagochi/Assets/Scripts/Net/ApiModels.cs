@@ -121,9 +121,41 @@ namespace Zzapmagochi.Net
         public string studentId;
         public string role;
         public CharacterDataDto character;
-        public WalletDataDto wallet;
         public List<string> inventory = new List<string>();
         public RoomLayoutDto room;
+    }
+
+    // ── 할 일(Todo) & eClass 크롤링 리프레시 (재화/수동체크 없음) ──
+    [Serializable]
+    public class TodoItemDto
+    {
+        public string id;
+        public string type;
+        public string title;
+        public string courseName;
+        public string dueAt;
+    }
+
+    [Serializable]
+    public class TodoListResponse
+    {
+        public List<TodoItemDto> items = new List<TodoItemDto>();
+        public int total;
+        public int previousTotal;
+        public int decreasedCount;
+        public string syncedAt;
+        public string source;
+        public string message;
+    }
+
+    [Serializable]
+    public class TodoSyncRequest
+    {
+        public string cookieHeader;
+        public string eclassId;
+        public string eclassPassword;
+        public bool openBrowserLogin;
+        public bool simulateCompleteOne = true;
     }
 
     public class ApiException : Exception
