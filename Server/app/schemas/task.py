@@ -1,5 +1,25 @@
-"""할 일 목록·완료·동기화 JSON (Pydantic 모델 정의 예정)
+"""할 일(Todo) 및 eClass 크롤링 동기화 JSON 스키마 (재화 및 수동 체크 제거 버전)."""
 
-TODO: API문서.md 계약에 맞춰 추후 구현한다.
-현재 이 모듈에는 실행되는 비즈니스 기능이 없다.
-"""
+from typing import List, Optional
+from pydantic import BaseModel, Field
+
+
+class TodoItemData(BaseModel):
+    id: str
+    type: str = "assignment"
+    title: str
+    courseName: str = ""
+    dueAt: str = ""
+
+
+class TodoListResponse(BaseModel):
+    items: List[TodoItemData] = Field(default_factory=list)
+    total: int = 0
+    previousTotal: int = 0
+    decreasedCount: int = 0
+    syncedAt: str = ""
+
+
+class TodoSyncRequest(BaseModel):
+    cookieHeader: Optional[str] = None
+    simulateCompleteOne: bool = False
