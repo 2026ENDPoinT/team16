@@ -18,5 +18,8 @@ namespace Zzapmagochi.Net
 
         Task<GitHubStreakPayload> LinkGitHub(string githubUsername, string oauthToken = null);
         Task<GitHubStreakPayload> GetGitHubStreak(string studentId);
+
+        Task<TodoListResponse> GetTodos();
+        Task<TodoListResponse> SyncTodos(string cookieHeader = null);
     }
 }

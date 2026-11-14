@@ -133,6 +133,27 @@ namespace Zzapmagochi.Net
                 "zzap-coder");
         }
 
+        public async Task<TodoListResponse> GetTodos()
+        {
+            return await SendJsonAsync<TodoListResponse>(
+                "GET",
+                $"{BaseUrl}/todos",
+                null);
+        }
+
+        public async Task<TodoListResponse> SyncTodos(string cookieHeader = null)
+        {
+            var body = new TodoSyncRequest
+            {
+                cookieHeader = cookieHeader,
+                simulateCompleteOne = true
+            };
+            return await SendJsonAsync<TodoListResponse>(
+                "POST",
+                $"{BaseUrl}/todos/sync",
+                JsonUtility.ToJson(body));
+        }
+
         private static async Task<T> SendJsonAsync<T>(
             string method,
             string url,
