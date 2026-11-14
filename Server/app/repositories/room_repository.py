@@ -9,7 +9,7 @@ from app.schemas.character import (
     CharacterUpdateRequest,
     SurveySubmitRequest,
 )
-from app.schemas.me import MeResponse, OnboardingData, WalletData
+from app.schemas.me import MeResponse, OnboardingData
 from app.schemas.room import (
     RoomGridSize,
     RoomLayout,
@@ -23,7 +23,7 @@ _initialized = False
 DEFAULT_INVENTORY = [
     "wall_0", "wall_1", "wall_2", "wall_3",
     "floor_0", "floor_1", "floor_2", "floor_3",
-    "furn_bed", "furn_box", "furn_frame", "furn_fridge", "furn_todo",
+    "furn_bed", "furn_box", "furn_frame", "furn_fridge", "furn_todo", "furn_streak",
     "cloth_outer_0", "cloth_outer_1", "cloth_acc_0",
     "cloth_top_0", "cloth_bottom_0", "cloth_shoe_0",
 ]
@@ -271,10 +271,6 @@ def get_me(student_id: str) -> MeResponse:
     room = get_room(student_id)
 
     with connection() as conn:
-        wallet_row = conn.execute(
-            "SELECT total_earned, balance FROM wallets WHERE student_id = ?",
-            (student_id,),
-        ).fetchone()
         inv_rows = conn.execute(
             "SELECT item_id FROM inventory WHERE student_id = ?",
             (student_id,),
@@ -289,10 +285,6 @@ def get_me(student_id: str) -> MeResponse:
             nextScene="scene_room",
         ),
         character=character,
-        wallet=WalletData(
-            totalEarned=wallet_row["total_earned"] if wallet_row else 0,
-            balance=wallet_row["balance"] if wallet_row else 0,
-        ),
         inventory=[r["item_id"] for r in inv_rows],
         room=room,
     )
